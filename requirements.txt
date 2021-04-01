@@ -1,0 +1,6 @@
+qiskit-terra
+numpy
+
+# SEE README:
+# lrs
+# lrcalc

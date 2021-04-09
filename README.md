@@ -4,7 +4,7 @@ Computations in the monodromy polytope for quantum gate sets
 
 ## Overview
 
-[Fixed-Depth Two-Qubit Circuits and the Monodromy Polytope](https://arxiv.org/abs/1904.10541) gave a prescription for a technique to determine whether a given two-qubit unitary can be written as a circuit with a prescribed sequence of two-qubit interactions and arbitrary single-qubit unitaries interleaved.
+[Fixed-Depth Two-Qubit Circuits and the Monodromy Polytope](https://arxiv.org/abs/1904.10541) described a technique for determining whether a given two-qubit unitary can be written as a circuit with a prescribed sequence of two-qubit interactions, interleaved with arbitrary single-qubit unitaries.
 This python package is a computationally effective implementation of that technique.
 
 ## Installation
@@ -19,31 +19,7 @@ If you're unable to put `lrs` in your search path, you can specify its location 
 
 ## Usage
 
-Give it a whirl with the following:
-
-```python
-from monodromy.coverage import *
-import monodromy.examples
-import monodromy.render
-
-operations = [
-    GatePolytope(
-        convex_subpolytopes=monodromy.examples.thirdCX_polytope.convex_subpolytopes,
-        cost=Fraction(1, 3),
-        operations=["thirdCX"],
-    ),
-    GatePolytope(
-        convex_subpolytopes=monodromy.examples.sqrtCX_polytope.convex_subpolytopes,
-        cost=Fraction(1, 2),
-        operations=["sqrtCX"],
-    ),
-]
-
-coverage_set = build_coverage_set(operations, chatty=True)
-print_coverage_set(coverage_set)
-print("====\nRender me in Mathematica:\n=====")
-print(monodromy.render.polytopes_to_mathematica(coverage_set))
-```
+Give it a whirl with `demo.py` located at toplevel.
 
 ## Notes
 

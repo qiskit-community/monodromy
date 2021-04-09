@@ -2,13 +2,14 @@
 monodromy/coverage.py
 """
 
+from copy import copy
 from dataclasses import dataclass
 from fractions import Fraction
 import heapq
 from typing import List
 
 from .elimination import cylinderize, project
-from .examples import identity_polytope
+from .examples import everything_polytope, identity_polytope
 from .polytopes import ConvexPolytope, Polytope, trim_polytope_set
 from .qlr_table import alcove, alcove_c2, qlr_polytope
 
@@ -38,52 +39,81 @@ class GatePolytope(Polytope):
                (self.cost == other.cost and self.volume <= other.volume)
 
 
-def intersect_and_project_to_c(
-        a_polytope: Polytope,
-        b_polytope: Polytope
-):
+def rho_reflect(polytope, coordinates=None):
     """
-    Produces the c-consequences for a set of a- and b-inequalities.
+    Applies rho-reflection to the indicated `coordinates` of `polytope`.
+    If `coordinates` is not supplied, uses the final three coordinates.
     """
 
-    a_coordinate_map = [0, 1, 2, 3]
-    b_coordinate_map = [0, 4, 5, 6]
-    c_coordinate_map = [0, 7, 8, 9]
+    if coordinates is None:
+        coordinates = [0, -3, -2, -1]
 
-    p = qlr_polytope
-    # impose the "large" alcove constraints on a and b
-    p = p.intersect(cylinderize(alcove, a_coordinate_map))
-    p = p.intersect(cylinderize(alcove, b_coordinate_map))
-    # also impose whatever constraints we were given besides
-    p = p.intersect(cylinderize(a_polytope, a_coordinate_map))
-    p = p.intersect(cylinderize(b_polytope, b_coordinate_map))
-
-    # now rho-symmetrize the last coordinate. this means that an inequality
+    # an inequality
     #     d + x a1 + y a2 + z a3 >= 0
     # induces on rho-application
     #     d + x (a3 + 1/2) + y (a4 + 1/2) + z (a1 - 1/2) >= 0, or
     #    (d + 1/2 x + 1/2 y - 1/2 z) + (z - y) a1 + (-y) a2 + (x - y) a3 >= 0.
-    rho_p = Polytope(convex_subpolytopes=[])
-    for convex_subpolytope in p.convex_subpolytopes:
+    rho_polytope = Polytope(convex_subpolytopes=[])
+    for convex_subpolytope in polytope.convex_subpolytopes:
         rotated_inequalities = []
         for inequality in convex_subpolytope.inequalities:
-            d = inequality[0]
-            x, y, z = inequality[-3], inequality[-2], inequality[-1]
-            rotated_inequalities.append(
-                [d + x / 2 + y / 2 - z / 2, *inequality[1:-3], z - y, -y, x - y]
-            )
-        rho_p.convex_subpolytopes.append(ConvexPolytope(
+            d = inequality[coordinates[0]]
+            x = inequality[coordinates[1]]
+            y = inequality[coordinates[2]]
+            z = inequality[coordinates[3]]
+
+            new_inequality = copy(inequality)
+            new_inequality[coordinates[0]] = d + x / 2 + y / 2 - z / 2
+            new_inequality[coordinates[1]] = z - y
+            new_inequality[coordinates[2]] = 0 - y
+            new_inequality[coordinates[3]] = x - y
+
+            rotated_inequalities.append(new_inequality)
+
+        rho_polytope.convex_subpolytopes.append(ConvexPolytope(
             inequalities=rotated_inequalities
         ))
 
-    p = p.union(rho_p)
+    return rho_polytope
 
-    # restrict to the A_{C_2} part of the last coordinate
-    p = p.intersect(cylinderize(alcove_c2, c_coordinate_map))
 
-    # lastly, project away the a, b parts
+def intersect_and_project(
+        target: str,
+        a_polytope: Polytope,
+        b_polytope: Polytope,
+        c_polytope: Polytope,
+) -> Polytope:
+    """
+    Produces the consequences for `target` for a family of a-, b-, and
+    c-inequalities.  `target` can take on the values 'a', 'b', or 'c'.
+    """
+
+    coordinates = {
+        "a": [0, 1, 2, 3],
+        "b": [0, 4, 5, 6],
+        "c": [0, 7, 8, 9],
+    }
+    assert target in coordinates.keys()
+
+    p = qlr_polytope
+    p = p.union(rho_reflect(p, coordinates[target]))
+    # impose the "large" alcove constraints
+    for value in coordinates.values():
+        p = p.intersect(cylinderize(alcove, value))
+
+    # also impose whatever constraints we were given besides
+    p = p.intersect(cylinderize(a_polytope, coordinates["a"]))
+    p = p.intersect(cylinderize(b_polytope, coordinates["b"]))
+    p = p.intersect(cylinderize(c_polytope, coordinates["c"]))
+
+    # restrict to the A_{C_2} part of the target coordinate
+    p = p.intersect(cylinderize(alcove_c2, coordinates[target]))
+
+    # lastly, project away the non-target parts
     p = p.reduce()
-    for index in range(6, 0, -1):
+    for index in range(9, 0, -1):
+        if index in coordinates[target]:
+            continue
         p = project(p, index)
         p = p.reduce()
 
@@ -154,8 +184,11 @@ def build_coverage_set(
         
         # take the head's polytopes, adjoin the new gate (& its rotation),
         # calculate new polytopes, and add those polytopes to the working set
-        new_polytope = intersect_and_project_to_c(
-            tail_polytope, next_polytope
+        new_polytope = intersect_and_project(
+            target="c",
+            a_polytope=tail_polytope,
+            b_polytope=next_polytope,
+            c_polytope=everything_polytope,
         )
         # specialize it from a Polytope to a GatePolytope
         new_polytope = GatePolytope(

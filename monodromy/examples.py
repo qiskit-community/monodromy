@@ -1,12 +1,12 @@
 """
 monodromy/examples.py
 
-A variety of "standard" polytopes.
+A variety of "standard" polytopes and gates.
 """
 
 from fractions import Fraction
 
-from .polytopes import make_convex_polytope, Polytope
+from .polytopes import ConvexPolytope, make_convex_polytope, Polytope
 from .qlr_table import fractionify, alcove_c2
 
 
@@ -54,3 +54,10 @@ XY_polytope = make_convex_polytope(fractionify([
 # some other gates of interest
 sqrtCX_polytope   = exactly(1 / 8, 1 / 8, -1 / 8)
 thirdCX_polytope  = exactly(Fraction(1, 12), Fraction(1, 12), Fraction(-1, 12))
+
+
+# gate-unrelated standard polytopes
+everything_polytope = Polytope(convex_subpolytopes=[
+    ConvexPolytope(inequalities=[])
+])
+empty_polytope = Polytope(convex_subpolytopes=[])

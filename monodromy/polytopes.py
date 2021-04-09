@@ -218,6 +218,8 @@ class Polytope:
             output += "\n"
         output += "]"
 
+        return output
+
     def contains(self, other) -> bool:
         """
         Returns True when the other polytope is contained in this one.

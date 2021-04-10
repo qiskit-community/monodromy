@@ -1,3 +1,6 @@
 __pycache__
 *.egg-info
 .idea
+.DS_Store
+.python-version
+*.pyc

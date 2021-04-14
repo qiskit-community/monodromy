@@ -6,7 +6,7 @@ from copy import copy
 from dataclasses import dataclass
 from fractions import Fraction
 import heapq
-from typing import List
+from typing import List, Optional
 
 from .elimination import cylinderize, project
 from .examples import everything_polytope, identity_polytope
@@ -82,6 +82,7 @@ def intersect_and_project(
         a_polytope: Polytope,
         b_polytope: Polytope,
         c_polytope: Polytope,
+        extra_polytope: Optional[Polytope] = None,
 ) -> Polytope:
     """
     Produces the consequences for `target` for a family of a-, b-, and
@@ -95,7 +96,10 @@ def intersect_and_project(
     }
     assert target in coordinates.keys()
 
-    p = qlr_polytope
+    if extra_polytope is None:
+        extra_polytope = everything_polytope
+
+    p = extra_polytope.intersect(qlr_polytope)
     p = p.union(rho_reflect(p, coordinates[target]))
     # impose the "large" alcove constraints
     for value in coordinates.values():

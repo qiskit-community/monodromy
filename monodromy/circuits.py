@@ -18,8 +18,8 @@ import qiskit.quantum_info
 from .coordinates import alcove_to_canonical_coordinate, unitary_to_alcove_coordinate
 from .coverage import intersect_and_project, GatePolytope
 from .decompose import decompose_xxyy_into_xxyy_xx
-from .examples import exactly, canonical_matrix
-from .polytopes import Polytope
+from .examples import exactly, fractionify, canonical_matrix
+from .polytopes import ConvexPolytope, Polytope
 
 
 def l1_distance(x, y):
@@ -83,12 +83,27 @@ def decomposition_hop(
         raise ValueError("Unable to find ancestor / operation polytope.")
 
     # calculate the intersection of qlr + (ancestor, operation, target),
-    # then project to the first tuple
+    # then project to the first tuple.
+    # NOTE: the extra condition is to force compatibility with xx_decompose
     backsolution_polytope = intersect_and_project(
         target="a",
         a_polytope=ancestor_polytope,
         b_polytope=operation_polytope,
         c_polytope=target_polytope,
+        extra_polytope=Polytope(convex_subpolytopes=[
+            ConvexPolytope(inequalities=fractionify([
+                [0,  1,  1, 0, 0, 0, 0, -1, -1, 0],
+                [0, -1, -1, 0, 0, 0, 0,  1,  1, 0],
+            ])),
+            ConvexPolytope(inequalities=fractionify([
+                [0,  1, 0,  1, 0, 0, 0, -1, 0, -1],
+                [0, -1, 0, -1, 0, 0, 0,  1, 0,  1],
+            ])),
+            ConvexPolytope(inequalities=fractionify([
+                [0, 0,  1,  1, 0, 0, 0, 0, -1, -1],
+                [0, 0, -1, -1, 0, 0, 0, 0,  1,  1],
+            ])),
+        ])
     )
 
     # pick any nonzero point in the backsolution polytope,

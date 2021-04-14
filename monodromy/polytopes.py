@@ -160,6 +160,11 @@ class Polytope:
 
         return volume
 
+    @property
+    def vertices(self):
+        return [convex_subpolytope.vertices
+                for convex_subpolytope in self.convex_subpolytopes]
+
     def reduce(self):
         """
         Removes redundant inequality sets from a Polytope.

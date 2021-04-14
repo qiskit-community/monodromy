@@ -140,6 +140,39 @@ def decomposition_hops(
     return decomposition
 
 
+def canonical_rotation_circuit(first_index, second_index, q):
+    """
+    Given a pair of distinct indices 0 ≤ (first_index, second_index) ≤ 2,
+    produces a two-qubit circuit (on qubits `q`) which rotates a canonical gate
+    a0 XX + a1 YY + a2 ZZ into a[first] XX + a[second] YY + a[other] ZZ.
+    """
+    conj = qiskit.QuantumCircuit(q)
+
+    if (0, 1) == (first_index, second_index):
+        pass  # no need to do anything
+    elif (0, 2) == (first_index, second_index):
+        conj.rx(-np.pi / 2, q[0])
+        conj.rx(np.pi / 2, q[1])
+    elif (1, 0) == (first_index, second_index):
+        conj.rz(-np.pi / 2, q[0])
+        conj.rz(-np.pi / 2, q[1])
+    elif (1, 2) == (first_index, second_index):
+        conj.rz(np.pi / 2, q[0])
+        conj.rz(np.pi / 2, q[1])
+        conj.ry(np.pi / 2, q[0])
+        conj.ry(-np.pi / 2, q[1])
+    elif (2, 0) == (first_index, second_index):
+        conj.rz(np.pi / 2, q[0])
+        conj.rz(np.pi / 2, q[1])
+        conj.rx(np.pi / 2, q[0])
+        conj.rx(-np.pi / 2, q[1])
+    elif (2, 1) == (first_index, second_index):
+        conj.ry(np.pi / 2, q[0])
+        conj.ry(-np.pi / 2, q[1])
+
+    return conj
+
+
 def xx_circuit_from_decomposition(
         decomposition,
         operations: List[GatePolytope]
@@ -222,29 +255,7 @@ def xx_circuit_from_decomposition(
         )
 
         # calculate the local gates used to permute the canonical coordinates
-        # TODO: these have not been exhaustively tested.
-        conj = qiskit.QuantumCircuit(q)
-        if (0, 1) == (first_index, second_index):
-            pass  # no need to do anything
-        elif (0, 2) == (first_index, second_index):
-            conj.rx(np.pi / 2, q[0])
-            conj.rx(np.pi / 2, q[1])
-        elif (1, 0) == (first_index, second_index):
-            conj.rz(np.pi / 2, q[0])
-            conj.rz(np.pi / 2, q[1])
-        elif (1, 2) == (first_index, second_index):
-            conj.rz(np.pi / 2, q[0])
-            conj.rz(np.pi / 2, q[1])
-            conj.ry(np.pi / 2, q[0])
-            conj.ry(np.pi / 2, q[1])
-        elif (2, 0) == (first_index, second_index):
-            conj.rz(np.pi / 2, q[0])
-            conj.rz(np.pi / 2, q[1])
-            conj.rx(np.pi / 2, q[0])
-            conj.rx(-np.pi / 2, q[1])
-        elif (2, 1) == (first_index, second_index):
-            conj.ry(np.pi / 2, q[0])
-            conj.ry(np.pi / 2, q[1])
+        conj = canonical_rotation_circuit(first_index, second_index, q)
 
         # (zrzs + (input circuit)^conj + zuzv + operation + zxzy)^conj*
         output_circuit = qiskit.QuantumCircuit(q)

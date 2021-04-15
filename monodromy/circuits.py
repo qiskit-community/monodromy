@@ -9,7 +9,9 @@ NOTE: This is _not_ known to be an exactly solvable problem in general.  The
       techniques for specific native gates.
 """
 
+from fractions import Fraction
 import numpy as np
+from random import randint
 from typing import List
 
 import qiskit
@@ -295,6 +297,26 @@ def xx_circuit_from_decomposition(
 #
 # some other routines for random circuit generation
 #
+
+
+def random_alcove_coordinate(denominator=100):
+    first_numerator = randint(0, denominator // 2)
+    second_numerator = randint(
+        max(-first_numerator // 3, -(denominator - 2 * first_numerator) // 2),
+        min(first_numerator, (3 * denominator - 6 * first_numerator) // 2)
+    )
+    third_numerator = randint(
+        max(-(first_numerator + second_numerator) // 2,
+            -(denominator - 2 * first_numerator) // 2),
+        min(second_numerator,
+            denominator - 2 * first_numerator - second_numerator)
+    )
+
+    return (
+        Fraction(first_numerator, denominator),
+        Fraction(second_numerator, denominator),
+        Fraction(third_numerator, denominator),
+    )
 
 
 def sample_irreducible_circuit(coverage_set, operations, target_gate_polytope):

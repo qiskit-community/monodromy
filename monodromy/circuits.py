@@ -10,11 +10,13 @@ NOTE: This is _not_ known to be an exactly solvable problem in general.  The
 """
 
 from fractions import Fraction
+import math
 import numpy as np
-from random import randint
+from random import randint, sample  # TODO: THE USE OF `sample` IS A STOPGAP!!!
 from typing import List
 
 import qiskit
+from qiskit.circuit.library import RXGate, RYGate, RZGate
 import qiskit.quantum_info
 
 from .coordinates import alcove_to_canonical_coordinate, unitary_to_alcove_coordinate
@@ -24,9 +26,71 @@ from .examples import exactly, fractionify, canonical_matrix
 from .polytopes import ConvexPolytope, Polytope
 
 
+reflection_options = {
+    "no reflection":  ([1, 1, 1],    1, []),        # we checked this phase
+    "reflect XX, YY": ([-1, -1, 1],  1, [RZGate]),  # we checked this phase
+    "reflect XX, ZZ": ([-1, 1, -1],  1, [RYGate]),  # we checked this phase, but only in a pair with Y shift
+    "reflect YY, ZZ": ([1, -1, -1], -1, [RXGate]),  # unchecked
+}
+
+shift_options = {
+    "no shift":    ([0, 0, 0],   1, []),  # we checked this phase
+    "Z shift":     ([0, 0, 1],  1j, [RZGate]),  # we checked this phase
+    "Y shift":     ([0, 1, 0], -1j, [RYGate]),  # we checked this phase, but only in a pair with reflect XX, ZZ
+    "Y,Z shift":   ([0, 1, 1],  -1, [RYGate, RZGate]),
+    "X shift":     ([1, 0, 0], -1j, [RXGate]),  # we checked this phase
+    "X,Z shift":   ([1, 0, 1],   1, [RXGate, RZGate]),  # we checked this phase
+    "X,Y shift":   ([1, 1, 0],  -1, [RXGate, RYGate]),
+    "X,Y,Z shift": ([1, 1, 1], -1j, [RXGate, RYGate, RZGate]),
+}
+
+
+
+def apply_reflection(reflection_name, coordinate, q):
+    """
+    Given a reflection type and a canonical coordinate, applies the reflection
+    and describes a circuit which enacts the reflection + a global phase shift.
+    """
+    reflection_scalars, reflection_phase_shift, source_reflection_gates = \
+        reflection_options[reflection_name]
+    reflected_coord = [x * y for x, y in zip(reflection_scalars, coordinate)]
+    source_reflection = qiskit.QuantumCircuit(q)
+    for gate in source_reflection_gates:
+        source_reflection.append(gate(np.pi), [q[0]])
+
+    return reflected_coord, source_reflection, reflection_phase_shift
+
+
+# TODO: I wonder if the global phase shift can be attached to the circuit...
+def apply_shift(shift_name, coordinate, q):
+    """
+    Given a shift type and a canonical coordinate, applies the shift and
+    describes a circuit which enacts the shift + a global phase shift.
+    """
+    shift_scalars, shift_phase_shift, source_shift_gates = \
+        shift_options[shift_name]
+    shifted_coord = [np.pi / 2 * x + y for x, y in zip(shift_scalars, coordinate)]
+
+    source_shift = qiskit.QuantumCircuit(q)
+    for gate in source_shift_gates:
+        source_shift.append(gate(np.pi), [q[0]])
+        source_shift.append(gate(np.pi), [q[1]])
+
+    return shifted_coord, source_shift, shift_phase_shift
+
+
+def nearp(x, y, modulus=np.pi/2, epsilon=1e-2):
+    """
+    Checks whether two points are near each other, accounting for float jitter
+    and wraparound.
+    """
+    return abs(np.mod(abs(x - y), modulus)) < epsilon or \
+           abs(np.mod(abs(x - y), modulus) - modulus) < epsilon
+
+
 def l1_distance(x, y):
     """
-
+    Computes the l_1 / Manhattan distance between two coordinates.
     """
     return sum([abs(xx - yy) for xx, yy in zip(x, y)])
 
@@ -40,12 +104,9 @@ def cheapest_container(coverage_set, point_polytope):
     working_polytope = None
 
     for polytope in coverage_set:
-        if polytope.cost < best_cost:
-            intersected_polytope = polytope.intersect(point_polytope)
-            intersected_polytope = intersected_polytope.reduce()
-            if 0 != len(intersected_polytope.convex_subpolytopes):
-                working_polytope = polytope
-                best_cost = polytope.cost
+        if polytope.cost < best_cost and polytope.contains(point_polytope):
+            working_polytope = polytope
+            best_cost = polytope.cost
 
     return working_polytope
 
@@ -93,14 +154,17 @@ def decomposition_hop(
         b_polytope=operation_polytope,
         c_polytope=target_polytope,
         extra_polytope=Polytope(convex_subpolytopes=[
+            # fix CAN(a, *, *)
             ConvexPolytope(inequalities=fractionify([
                 [0,  1,  1, 0, 0, 0, 0, -1, -1, 0],
                 [0, -1, -1, 0, 0, 0, 0,  1,  1, 0],
             ])),
+            # fix CAN(*, b, *)
             ConvexPolytope(inequalities=fractionify([
                 [0,  1, 0,  1, 0, 0, 0, -1, 0, -1],
                 [0, -1, 0, -1, 0, 0, 0,  1, 0,  1],
             ])),
+            # fix CAN(*, *, c)
             ConvexPolytope(inequalities=fractionify([
                 [0, 0,  1,  1, 0, 0, 0, 0, -1, -1],
                 [0, 0, -1, -1, 0, 0, 0, 0,  1,  1],
@@ -110,17 +174,20 @@ def decomposition_hop(
 
     # pick any nonzero point in the backsolution polytope,
     # then recurse on that point and the ancestor polytope
-    for convex_polytope in backsolution_polytope.convex_subpolytopes:
-        vertices = convex_polytope.vertices
-        if 0 != len(vertices):
-            return (
-                vertices[0],
-                operation_polytope.operations[0],
-                target_polytope.convex_subpolytopes[0].vertices[0],
-                ancestor_polytope
-            )
 
-    raise ValueError("Empty backsolution polytope.")
+    all_vertices = []
+    for convex_polytope in backsolution_polytope.convex_subpolytopes:
+        all_vertices += convex_polytope.vertices
+    if 0 != len(all_vertices):
+        return (
+            # TODO: THIS IS A STOPGAP MEASURE!!!
+            sample(all_vertices, 1)[0],
+            operation_polytope.operations[0],
+            target_polytope.convex_subpolytopes[0].vertices[0],
+            ancestor_polytope
+        )
+    else:
+        raise ValueError("Empty backsolution polytope.")
 
 
 def decomposition_hops(
@@ -143,6 +210,9 @@ def decomposition_hops(
     decomposition = []
 
     working_polytope = cheapest_container(coverage_set, target_polytope)
+
+    if working_polytope is None:
+        raise ValueError(f"{target_polytope} not contained in coverage set.")
 
     # if this polytope corresponds to the empty operation, we're done.
     while 0 != len(working_polytope.operations):
@@ -206,7 +276,7 @@ def xx_circuit_from_decomposition(
         for operation in operations
     }
 
-    # make sure that all the operations are of XX-interaction
+    # make sure that all the operations are of XX-interaction type
     assert all([abs(c[1]) < 0.01 and abs(c[2]) < 0.01
                 for c in canonical_coordinate_table.values()])
 
@@ -229,68 +299,107 @@ def xx_circuit_from_decomposition(
     # the first canonical gate is easy!
     qc.append(canonical_gate_table[decomposition[0][1]], q)
 
+    global_phase = 1 + 0j
+
     # from here, we have to work.
-    for input_alcove_coord, operation, output_alcove_coord in decomposition[1:]:
-        input_canonical_coord = alcove_to_canonical_coordinate(
-            *input_alcove_coord)
-        output_canonical_coord = alcove_to_canonical_coordinate(
-            *output_alcove_coord)
+    for decomposition_depth, (source_alcove_coord, operation, target_alcove_coord) \
+            in enumerate(decomposition[1:]):
+        source_canonical_coord = alcove_to_canonical_coordinate(*source_alcove_coord)
+        target_canonical_coord = alcove_to_canonical_coordinate(*target_alcove_coord)
 
-        # NOTE: nonzero_p is guaranteed to be nonzero somewhere
-        delta_p = [x != y for x, y in
-                   zip(input_canonical_coord, output_canonical_coord)]
-        nonzero_p = [x != 0 for x in input_canonical_coord]
-        delta_count = sum(delta_p)
+        permute_source_for_overlap, permute_target_for_overlap = None, None
 
-        if 3 == delta_count:
-            raise NotImplementedError("Three coordinates changed at once, so "
-                                      "the XX+XY trick doesn't apply.")
-        elif 2 == delta_count:
-            if 0 == sum([x and y for x, y in zip(delta_p, nonzero_p)]):
-                raise NotImplementedError(
-                    "Two vanishing coordinates changed at once, so "
-                    "the XX+XY trick doesn't apply.")
-            first_index, second_index = [index for index, value in
-                                         enumerate(delta_p) if value]
-        elif 1 == delta_count:
-            first_index = delta_p.index(True)
-            if nonzero_p[first_index]:
-                second_index = 0 if first_index == 1 else 1
-            else:
-                second_index = nonzero_p.index(True)
-        else:
-            # no delta means no operation needed
-            continue
+        # apply all possible reflections, shifts to the source
+        for source_reflection_name in reflection_options.keys():
+            reflected_source_coord, source_reflection, reflection_phase_shift = \
+                apply_reflection(source_reflection_name, source_canonical_coord, q)
+            for source_shift_name in shift_options.keys():
+                shifted_source_coord, source_shift, shift_phase_shift = \
+                    apply_shift(source_shift_name, reflected_source_coord, q)
 
-        # calculate the ZI and IZ gates used in the (XX + YY) * XX decomposition
-        r, s, u, v, x, y = decompose_xxyy_into_xxyy_xx(
-            float(output_canonical_coord[first_index]),
-            float(output_canonical_coord[second_index]),
-            float(input_canonical_coord[first_index]),
-            float(input_canonical_coord[second_index]),
-            float(canonical_coordinate_table[operation][0]),
-        )
+                # check for overlap, back out permutation
+                source_shared, target_shared = None, None
+                for i, j in [(0, 0), (0, 1), (0, 2),
+                             (1, 0), (1, 1), (1, 2),
+                             (2, 0), (2, 1), (2, 2)]:
+                    if nearp(shifted_source_coord[i], target_canonical_coord[j],
+                             modulus=np.pi):
+                        source_shared, target_shared = i, j
+                        break
+                if source_shared is None:
+                    continue
 
-        # calculate the local gates used to permute the canonical coordinates
-        conj = canonical_rotation_circuit(first_index, second_index, q)
+                # pick out the other coordinates
+                source_first, source_second = [x for x in [0, 1, 2] if
+                                               x != source_shared]
+                target_first, target_second = [x for x in [0, 1, 2] if
+                                               x != target_shared]
 
-        # (zrzs + (input circuit)^conj + zuzv + operation + zxzy)^conj*
+                # check for arccos validity
+                r, s, u, v, x, y = decompose_xxyy_into_xxyy_xx(
+                    float(target_canonical_coord[target_first]),
+                    float(target_canonical_coord[target_second]),
+                    float(shifted_source_coord[source_first]),
+                    float(shifted_source_coord[source_second]),
+                    float(canonical_coordinate_table[operation][0]),
+                )
+                if any([math.isnan(val) for val in (r, s, u, v, x, y)]):
+                    continue
+
+                # OK: this combination of things works.
+                # save the permutation which rotates the shared coordinate into ZZ.
+                permute_source_for_overlap = canonical_rotation_circuit(
+                    source_first, source_second, q)
+                permute_target_for_overlap = canonical_rotation_circuit(
+                    target_first, target_second, q)
+                break
+
+            if permute_source_for_overlap is not None:
+                break
+
+        if permute_source_for_overlap is None:
+            raise ValueError("Failed to find suitable Weyl reflections.")
+
+        # target^p_t_f_o = rs * (source^s_reflection * s_shift)^p_s_f_o * uv * operation * xy
+        # start with source conjugated by source_reflection, shifted by source_shift, conjugated by p_s_f_o
         output_circuit = qiskit.QuantumCircuit(q)
-        output_circuit += conj.inverse()
-        output_circuit.rz(x * 2, q[0])
-        output_circuit.rz(y * 2, q[1])
-        output_circuit.append(canonical_gate_table[operation], q)
-        output_circuit.rz(u * 2, q[0])
-        output_circuit.rz(v * 2, q[1])
-        output_circuit += conj
+        output_circuit += permute_source_for_overlap
+        output_circuit += source_reflection
         output_circuit.compose(qc, inplace=True)
-        output_circuit += conj.inverse()
-        output_circuit.rz(r * 2, q[0])
-        output_circuit.rz(s * 2, q[1])
-        output_circuit += conj
+        output_circuit += source_reflection.inverse()
+        output_circuit += source_shift
+        output_circuit += permute_source_for_overlap.inverse()
+        qc = output_circuit
+        global_phase *= reflection_phase_shift * shift_phase_shift
 
+        # target^p_t_f_o = rs * qc * uv * operation * xy
+        # install the local Z rolls
+        output_circuit = qiskit.QuantumCircuit(q)
+        output_circuit.rz(2 * x, q[0])
+        output_circuit.rz(2 * y, q[1])
+        output_circuit.append(canonical_gate_table[operation], q)
+        output_circuit.rz(2 * u, q[0])
+        output_circuit.rz(2 * v, q[1])
+        output_circuit.compose(qc, inplace=True)
+        output_circuit.rz(2 * r, q[0])
+        output_circuit.rz(2 * s, q[1])
         qc = output_circuit
 
+        # target = qc^p_t_f_o*
+        # finally, conjugate by the (inverse) target permutation
+        output_circuit = qiskit.QuantumCircuit(q)
+        output_circuit += permute_target_for_overlap.inverse()
+        output_circuit.compose(qc, inplace=True)
+        output_circuit += permute_target_for_overlap
+        qc = output_circuit
+
+        # Check for correctness
+        # composite_matrix = qiskit.quantum_info.Operator(qc).data / global_phase
+        # target_matrix = canonical_matrix(*target_canonical_coord)
+        # if not (abs(composite_matrix - target_matrix) < 0.1).all():
+        #     raise RuntimeError("Stopping.")
+
+    qc.global_phase = -np.log(global_phase).imag
     return qc
 
 
@@ -299,6 +408,9 @@ def xx_circuit_from_decomposition(
 #
 
 
+# TODO: In rare cases this generates an empty range, and I'm not sure why.
+# TODO: This doesn't sample uniformly; it treats the pushed-forward uniform
+#       distribution along a projection as uniform, which is false.
 def random_alcove_coordinate(denominator=100):
     first_numerator = randint(0, denominator // 2)
     second_numerator = randint(

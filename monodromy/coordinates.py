@@ -84,6 +84,28 @@ def alcove_to_canonical_coordinate(x, y, z):
     Given an alcove coordinate, produces its image as a canonical coordinate.
     """
     normalizing_factor = np.pi
-    return ((x + y) / 2 * normalizing_factor,
-            (z + x) / 2 * normalizing_factor,
-            (y + z) / 2 * normalizing_factor)
+    retval = ((x + y) / 2 * normalizing_factor,
+              (z + x) / 2 * normalizing_factor,
+              (y + z) / 2 * normalizing_factor)
+
+    # Just shearing the monodromy coordinate system to the canonical system
+    # takes the monodromy alcove, a triangular prism, to another triangular
+    # prism.  This last step enacts the scissors-congruence that turns this into
+    # the expected tetrahedron.
+    if retval[-1] < -0.01:
+        retval = (
+            np.pi / 2 - retval[0],
+            retval[1],
+            -1 * retval[2]
+        )
+
+    return retval
+
+
+# TODO: This needs a corresponding scissors congruence branch.
+def canonical_to_alcove_coordinate(x, y, z):
+    normalizing_factor = np.pi
+
+    return ((x + y - z) / normalizing_factor,
+            (x - y + z) / normalizing_factor,
+            (-x + y + z) / normalizing_factor)

@@ -11,11 +11,12 @@ import numpy as np
 from .examples import canonical_matrix, rz_matrix
 
 
+# TODO: THIS IS A STOPGAP!!!
 def safe_arccos(numerator, denominator):
     """
     Computes arccos(n/d) with different (better?) numerical stability.
     """
-    threshold = 0.01
+    threshold = 0.001
 
     if abs(numerator - denominator) < threshold:
         return 0.0
@@ -41,13 +42,11 @@ def decompose_xxyy_into_xxyy_xx(a_target, b_target, a1, b1, a2):
     ca, sa = np.cos(a2), np.sin(a2)
 
     uplusv = 1 / 2 * safe_arccos(
-        cminus ** 2 * ca ** 2 + sminus ** 2 * sa ** 2 - np.cos(
-            a_target - b_target) ** 2,
+        cminus ** 2 * ca ** 2 + sminus ** 2 * sa ** 2 - np.cos(a_target - b_target) ** 2,
         2 * cminus * ca * sminus * sa
     )
     uminusv = 1 / 2 * safe_arccos(
-        cplus ** 2 * ca ** 2 + splus ** 2 * sa ** 2 - np.cos(
-            a_target + b_target) ** 2,
+        cplus ** 2 * ca ** 2 + splus ** 2 * sa ** 2 - np.cos(a_target + b_target) ** 2,
         2 * cplus * ca * splus * sa
     )
 
@@ -80,8 +79,8 @@ def decompose_xxyy_into_xxyy_xx(a_target, b_target, a1, b1, a2):
         middle_matrix,
         np.kron(rz_matrix(x), rz_matrix(y)),
     ])
-    if ((abs(np.angle(generated_matrix[3, 0]) - np.pi / 2) < 0.01 and a1 > b1) or
-            (abs(np.angle(generated_matrix[3, 0]) + np.pi / 2) < 0.01 and a1 < b1)):
+    if ((abs(np.angle(generated_matrix[3, 0]) - np.pi / 2) < 0.01 and a_target > b_target) or
+            (abs(np.angle(generated_matrix[3, 0]) + np.pi / 2) < 0.01 and a_target < b_target)):
         x += np.pi / 4
         y += np.pi / 4
         r -= np.pi / 4

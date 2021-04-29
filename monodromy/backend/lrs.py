@@ -33,7 +33,8 @@ class LRSBackend(Backend):
     @staticmethod
     def volume(convex_polytope: ConvexPolytope) -> PolytopeVolume:
         inequalities = convex_polytope.inequalities
-        inequality_payload = encode_inequalities(inequalities)
+        equalities = convex_polytope.equalities
+        inequality_payload = encode_inequalities(inequalities, equalities)
         vertex_response = single_lrs_pass(inequality_payload)
         vertices = decode_vertices(vertex_response)
         vertex_payload = encode_vertices(vertices)
@@ -47,20 +48,23 @@ class LRSBackend(Backend):
     @staticmethod
     def reduce(convex_polytope: ConvexPolytope) -> ConvexPolytope:
         inequalities = convex_polytope.inequalities
-        inequality_payload = encode_inequalities(inequalities)
+        equalities = convex_polytope.equalities
+        inequality_payload = encode_inequalities(inequalities, equalities)
         vertex_response = single_lrs_pass(inequality_payload)
         vertices = decode_vertices(vertex_response)
         vertex_payload = encode_vertices(vertices)
         inequality_response = single_lrs_pass(vertex_payload)
         inequality_dictionary = decode_inequalities(inequality_response)
         return ConvexPolytope(
-            inequalities=inequality_dictionary["inequalities"]
+            inequalities=inequality_dictionary["inequalities"],
+            equalities=inequality_dictionary["equalities"],
         )
 
     @staticmethod
     def vertices(convex_polytope: ConvexPolytope) -> List[List[Fraction]]:
         inequalities = convex_polytope.inequalities
-        inequality_payload = encode_inequalities(inequalities)
+        equalities = convex_polytope.equalities
+        inequality_payload = encode_inequalities(inequalities, equalities)
         vertex_response = single_lrs_pass(inequality_payload)
         vertices = decode_vertices(vertex_response)
         return [v[1:] for v in vertices]
@@ -84,20 +88,25 @@ def single_lrs_pass(payload: bytes) -> bytes:
     return stdout
 
 
-def encode_inequalities(inequalities, name="name") -> bytes:
+def encode_inequalities(inequalities, equalities=None, name="name") -> bytes:
     """Format `inequalities` for consumption by lrs."""
+    equalities = equalities if equalities is not None else []
     output = ""
     output += name + "\n"
     output += "H-representation\n"
+    # if 0 < len(equalities):
+    #     output += f"linearity {len(equalities)} " \
+    #               f"{' '.join(range(1, 1 + len(equalities)))}\n"
     output += "begin\n"
-    output += (f"{len(inequalities)} {len(inequalities[0])}"
+    output += (f"{len(inequalities) + 2*len(equalities)}"
+               f" {len((inequalities + equalities)[0])}"
                " rational\n")
-    for inequality in inequalities:
+    for row in inequalities + equalities + [[-x for x in eq] for eq in equalities]:
         gcd = 1
-        for x in inequality:
+        for x in row:
             gcd = math.gcd(gcd, x.denominator)
         gcd = abs(gcd)
-        output += " ".join([str(x * gcd) for x in inequality]) + "\n"
+        output += " ".join([str(x * gcd) for x in row]) + "\n"
     output += "end\n"
 
     return output.encode()
@@ -106,7 +115,7 @@ def encode_inequalities(inequalities, name="name") -> bytes:
 def decode_inequalities(lrs_output: bytes):
     """Parse lrs output (an `H-representation`) into python data."""
     volume = None
-    inequalities = []
+    rows = []
     name = None
     equality_indices = []
     invocation_signature = None
@@ -131,7 +140,7 @@ def decode_inequalities(lrs_output: bytes):
         if line.startswith('end'):
             continue
         if line.startswith('begin'):
-            inequalities = []
+            rows = []
             continue
         # skip the table size, if it's present
         if 'rational' in line:
@@ -145,19 +154,19 @@ def decode_inequalities(lrs_output: bytes):
         if line.startswith('linearity'):
             equality_indices = [int(x) for x in line[9:].split()[1:]]
             continue
-        inequalities.append([Fraction(x) for x in line.split()])
+        rows.append([Fraction(x) for x in line.split()])
 
-    for index in equality_indices:
-        inequalities.append([-x for x in inequalities[index - 1]])
-
-    if 0 == len(inequalities):
+    if 0 == len(rows):
         print(lrs_output.decode('utf-8'))
         raise TypeError("Something bad happened in `lrs`.")
 
     return dict(
-        inequalities=inequalities,
+        inequalities=[row for index, row in enumerate(rows)
+                      if 1 + index not in equality_indices],
+        equalities=[row for index, row in enumerate(rows)
+                    if 1 + index in equality_indices],
         volume=volume,
-        dimension=len(inequalities[0]) - 1 - len(equality_indices),
+        dimension=len(rows[0]) - 1 - len(equality_indices),
     )
 
 
@@ -202,6 +211,8 @@ def decode_vertices(lrs_output: bytes):
             continue
         if line == 'H-representation':
             raise ValueError("Vertex table decoder got an inequality table as input")
+        if line.startswith('linearity'):
+            continue
         if line.startswith("No feasible solution"):
             raise NoFeasibleSolutions()
         vertices.append([Fraction(x) for x in line.split()])
@@ -211,12 +222,3 @@ def decode_vertices(lrs_output: bytes):
         raise TypeError("Something bad happened in `lrs`.")
 
     return vertices
-
-
-# def __str__(self):
-#     output = ""
-#     for vertex in self.vertices:
-#         output += " ".join([f"{str(x): >6}" for x in vertex[1:]])
-#         output += "\n"
-#
-#     return output

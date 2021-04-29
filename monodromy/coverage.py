@@ -55,7 +55,7 @@ def rho_reflect(polytope, coordinates=None):
     #    (d + 1/2 x + 1/2 y - 1/2 z) + (z - y) a1 + (-y) a2 + (x - y) a3 >= 0.
     rho_polytope = Polytope(convex_subpolytopes=[])
     for convex_subpolytope in polytope.convex_subpolytopes:
-        rotated_inequalities = []
+        rotated_equalities, rotated_inequalities = [], []
         for inequality in convex_subpolytope.inequalities:
             d = inequality[coordinates[0]]
             x = inequality[coordinates[1]]
@@ -70,8 +70,23 @@ def rho_reflect(polytope, coordinates=None):
 
             rotated_inequalities.append(new_inequality)
 
+        for equality in convex_subpolytope.equalities:
+            d = equality[coordinates[0]]
+            x = equality[coordinates[1]]
+            y = equality[coordinates[2]]
+            z = equality[coordinates[3]]
+
+            new_equality = copy(equality)
+            new_equality[coordinates[0]] = d + x / 2 + y / 2 - z / 2
+            new_equality[coordinates[1]] = z - y
+            new_equality[coordinates[2]] = 0 - y
+            new_equality[coordinates[3]] = x - y
+
+            rotated_equalities.append(new_equality)
+
         rho_polytope.convex_subpolytopes.append(ConvexPolytope(
-            inequalities=rotated_inequalities
+            inequalities=rotated_inequalities,
+            equalities=rotated_equalities,
         ))
 
     return rho_polytope

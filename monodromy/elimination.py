@@ -27,6 +27,11 @@ def cylinderize(
             for source_value, target_index in zip(inequality, coordinate_map):
                 new_row[target_index] += source_value
             cylinderized_subpolytope.inequalities.append(new_row)
+        for equality in convex_subpolytope.equalities:
+            new_row = [Fraction(0)] * parent_dimension
+            for source_value, target_index in zip(equality, coordinate_map):
+                new_row[target_index] += source_value
+            cylinderized_subpolytope.equalities.append(new_row)
         cylinderized_polytope.convex_subpolytopes.append(
             cylinderized_subpolytope
         )
@@ -44,8 +49,10 @@ def project(polytope, index):
 
     for more details.
 
+    NOTE: Some pairs of inequalities of the result may belong to equalities.
+          To collect these equalities, call reduce.
     NOTE: lrs supposedly supports this, but they note that others have reported
-          bugs and so don't suggest that users engage with it.
+          bugs and so suggest that users don't engage with it.
     """
 
     projected_polytope = Polytope(convex_subpolytopes=[])
@@ -53,6 +60,7 @@ def project(polytope, index):
     for convex_subpolytope in polytope.convex_subpolytopes:
         # F-M collects inequalities into three buckets:
         # those with the `index` summand zero, positive, and negative.
+        zero_equalities = []
         zero_inequalities = []
         positive_inequalities = []
         negative_inequalities = []
@@ -65,6 +73,17 @@ def project(polytope, index):
                 negative_inequalities.append(inequality)
             else:
                 raise TypeError(f"Switch failure on {inequality[index]}")
+        for equality in convex_subpolytope.equalities:
+            if 0 == equality[index]:
+                zero_equalities.append(equality)
+            elif 0 < equality[index]:
+                positive_inequalities.append(equality)
+                negative_inequalities.append([-x for x in equality])
+            elif 0 > equality[index]:
+                negative_inequalities.append(equality)
+                positive_inequalities.append([-x for x in equality])
+            else:
+                raise TypeError(f"Switch failure on {equality[index]}")
 
         joined_inequalities = []
         for positive_inequality in positive_inequalities:
@@ -84,9 +103,11 @@ def project(polytope, index):
 
         # For the remainder, we just ignore the unwanted coordinate.
         zero_inequalities = [z[:index] + z[1+index:] for z in zero_inequalities]
+        zero_equalities = [z[:index] + z[1+index:] for z in zero_equalities]
 
         projected_polytope.convex_subpolytopes.append(
-            ConvexPolytope(inequalities=zero_inequalities + joined_inequalities)
+            ConvexPolytope(inequalities=zero_inequalities + joined_inequalities,
+                           equalities=zero_equalities)
         )
 
     return projected_polytope

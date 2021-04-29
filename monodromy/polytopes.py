@@ -5,7 +5,7 @@ Basic data structures for manipulating (non/convex) polytopes.
 """
 
 from copy import copy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import List, Optional
 
@@ -54,6 +54,7 @@ class ConvexPolytope:
     """
 
     inequalities: List[List[Fraction]]
+    equalities: List[List[Fraction]] = field(default_factory=list)
 
     @property
     def volume(self) -> PolytopeVolume:
@@ -86,6 +87,12 @@ class ConvexPolytope:
                 output += f" + {str(item): >5} x{1+index}"
             output += " >= 0\n"
 
+        for equality in self.equalities:
+            output += f"{str(equality[0]): >5}"
+            for index, item in enumerate(equality[1:]):
+                output += f" + {str(item): >5} x{1+index}"
+            output += " == 0\n"
+
         return output
 
     def intersect(self, other):  # ConvexPolytope, ConvexPolytope -> ConvexPolytope
@@ -93,7 +100,8 @@ class ConvexPolytope:
         Returns A cap B.
         """
         return ConvexPolytope(
-            inequalities=self.inequalities + other.inequalities
+            inequalities=self.inequalities + other.inequalities,
+            equalities=self.equalities + other.equalities,
         )
 
     def contains(self, other) -> bool:
@@ -281,8 +289,14 @@ def trim_polytope_set(
     return trimmable_polytopes
 
 
-def make_convex_polytope(inequalities: List[List[Fraction]]) -> Polytope:
+def make_convex_polytope(
+        inequalities: List[List[Fraction]],
+        equalities: Optional[List[List[Fraction]]] = None,
+) -> Polytope:
     """Convenience method for forming a Polytope with one component."""
+    equalities = equalities if equalities is not None else []
+
     return Polytope(convex_subpolytopes=[
-        ConvexPolytope(inequalities=inequalities)
+        ConvexPolytope(inequalities=inequalities,
+                       equalities=equalities)
     ])

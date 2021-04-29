@@ -22,8 +22,7 @@ def exactly(*coordinates) -> Polytope:
         row[0] = Fraction(coordinate)
         row[1 + index] = Fraction(-1)
         table.append(row)
-        table.append([-x for x in row])
-    return make_convex_polytope(table)
+    return make_convex_polytope([], equalities=table)
 
 
 # corners of the A_{C_2} polytope, in the order that they appear in /1904.10541

@@ -71,7 +71,10 @@ class ConvexPolytope:
         """
         Set of extremal vertices of this convex body.
         """
-        return monodromy.backend.backend.vertices(self)
+        try:
+            return monodromy.backend.backend.vertices(self)
+        except monodromy.backend.backend_abc.NoFeasibleSolutions:
+            return []
 
     def reduce(self):  # -> ConvexPolytope
         """

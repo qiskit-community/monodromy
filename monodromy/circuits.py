@@ -147,7 +147,10 @@ def decomposition_hop(
 
     # calculate the intersection of qlr + (ancestor, operation, target),
     # then project to the first tuple.
-    # NOTE: the extra condition is to force compatibility with xx_decompose
+    # NOTE: the extra condition is to force compatibility with
+    #       `decompose_xxyy_into_xxyy_xx`, but it isn't necessary in general.
+    #       in fact, it's also not sufficient: we may have to retry this
+    #       this decomposition step if that routine fails later on.
     backsolution_polytope = intersect_and_project(
         target="a",
         a_polytope=ancestor_polytope,
@@ -392,12 +395,6 @@ def xx_circuit_from_decomposition(
         output_circuit.compose(qc, inplace=True)
         output_circuit += permute_target_for_overlap
         qc = output_circuit
-
-        # Check for correctness
-        # composite_matrix = qiskit.quantum_info.Operator(qc).data / global_phase
-        # target_matrix = canonical_matrix(*target_canonical_coord)
-        # if not (abs(composite_matrix - target_matrix) < 0.1).all():
-        #     raise RuntimeError("Stopping.")
 
     qc.global_phase = -np.log(global_phase).imag
     return qc

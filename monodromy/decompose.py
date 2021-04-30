@@ -5,6 +5,7 @@ Routines for decomposing canonical gates into certain interactions.
 """
 
 from functools import reduce
+import warnings
 
 import numpy as np
 
@@ -16,11 +17,13 @@ def safe_arccos(numerator, denominator):
     """
     Computes arccos(n/d) with different (better?) numerical stability.
     """
-    threshold = 0.001
+    threshold = 0.005
 
-    if abs(numerator - denominator) < threshold:
+    if abs(numerator) > abs(denominator) and \
+            abs(numerator - denominator) < threshold:
         return 0.0
-    elif abs(numerator + denominator) < threshold:
+    elif abs(numerator) > abs(denominator) and \
+            abs(numerator + denominator) < threshold:
         return np.pi
     else:
         return np.arccos(numerator / denominator)

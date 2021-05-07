@@ -7,6 +7,7 @@ More information about `lrs`: http://cgm.cs.mcgill.ca/~avis/C/lrs.html
 """
 
 
+from copy import copy
 from fractions import Fraction
 import math  # gcd
 from os import getenv
@@ -47,6 +48,8 @@ class LRSBackend(Backend):
 
     @staticmethod
     def reduce(convex_polytope: ConvexPolytope) -> ConvexPolytope:
+        clone = copy(convex_polytope)
+
         inequalities = convex_polytope.inequalities
         equalities = convex_polytope.equalities
         inequality_payload = encode_inequalities(inequalities, equalities)
@@ -55,10 +58,11 @@ class LRSBackend(Backend):
         vertex_payload = encode_vertices(vertices)
         inequality_response = single_lrs_pass(vertex_payload)
         inequality_dictionary = decode_inequalities(inequality_response)
-        return ConvexPolytope(
-            inequalities=inequality_dictionary["inequalities"],
-            equalities=inequality_dictionary["equalities"],
-        )
+
+        clone.inequalities = inequality_dictionary["inequalities"]
+        clone.equalities = inequality_dictionary["equalities"]
+
+        return clone
 
     @staticmethod
     def vertices(convex_polytope: ConvexPolytope) -> List[List[Fraction]]:

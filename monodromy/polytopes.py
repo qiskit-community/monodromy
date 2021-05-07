@@ -10,6 +10,8 @@ from fractions import Fraction
 from typing import List, Optional
 
 import monodromy.backend
+from monodromy.utilities import bit_iteration, clear_memoization, \
+    memoized_property
 
 
 @dataclass(order=True)
@@ -56,7 +58,7 @@ class ConvexPolytope:
     inequalities: List[List[Fraction]]
     equalities: List[List[Fraction]] = field(default_factory=list)
 
-    @property
+    @memoized_property
     def volume(self) -> PolytopeVolume:
         """
         (Top-dimensional) Euclidean volume of this convex body.
@@ -66,7 +68,7 @@ class ConvexPolytope:
         except monodromy.backend.backend_abc.NoFeasibleSolutions:
             return PolytopeVolume(dimension=0, volume=Fraction(0))
 
-    @property
+    @memoized_property
     def vertices(self) -> List[List[Fraction]]:
         """
         Set of extremal vertices of this convex body.
@@ -124,7 +126,7 @@ class Polytope:
 
     convex_subpolytopes: List[ConvexPolytope]
 
-    @property
+    @memoized_property
     def volume(self) -> PolytopeVolume:
         """
         Computes the Euclidean volume of this polytope.
@@ -171,7 +173,7 @@ class Polytope:
 
         return volume
 
-    @property
+    @memoized_property
     def vertices(self):
         return [convex_subpolytope.vertices
                 for convex_subpolytope in self.convex_subpolytopes]
@@ -207,6 +209,7 @@ class Polytope:
         clone = copy(self)
         clone.convex_subpolytopes = (self.convex_subpolytopes +
                                      other.convex_subpolytopes)
+        clear_memoization(clone)
         return clone
 
     def intersect(self, other):
@@ -223,6 +226,7 @@ class Polytope:
 
         clone = copy(self)
         clone.convex_subpolytopes = convex_subpolytopes
+        clear_memoization(clone)
         return clone
 
     def __str__(self):

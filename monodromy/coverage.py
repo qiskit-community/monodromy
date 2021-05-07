@@ -53,7 +53,7 @@ def rho_reflect(polytope, coordinates=None):
     # induces on rho-application
     #     d + x (a3 + 1/2) + y (a4 + 1/2) + z (a1 - 1/2) >= 0, or
     #    (d + 1/2 x + 1/2 y - 1/2 z) + (z - y) a1 + (-y) a2 + (x - y) a3 >= 0.
-    rho_polytope = Polytope(convex_subpolytopes=[])
+    rho_subpolytopes = []
     for convex_subpolytope in polytope.convex_subpolytopes:
         rotated_equalities, rotated_inequalities = [], []
         for inequality in convex_subpolytope.inequalities:
@@ -84,12 +84,12 @@ def rho_reflect(polytope, coordinates=None):
 
             rotated_equalities.append(new_equality)
 
-        rho_polytope.convex_subpolytopes.append(ConvexPolytope(
+        rho_subpolytopes.append(ConvexPolytope(
             inequalities=rotated_inequalities,
             equalities=rotated_equalities,
         ))
 
-    return rho_polytope
+    return Polytope(convex_subpolytopes=rho_subpolytopes)
 
 
 def intersect_and_project(

@@ -6,7 +6,7 @@ from copy import copy
 from dataclasses import dataclass
 from fractions import Fraction
 import heapq
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from .elimination import cylinderize, project
 from .examples import everything_polytope, identity_polytope
@@ -139,6 +139,43 @@ def intersect_and_project(
     return p
 
 
+def prereduce_operation_polytopes(
+        operations: List[GatePolytope],
+        target_coordinate: str = "c",
+        background_polytope: Optional[Polytope] = None,
+) -> Dict[str, GatePolytope]:
+    """
+    Specializes the "b"-coordinates of the monodromy polytope to a particular
+    operation, then projects them away.
+    """
+
+    coordinates = {
+        "a": [0, 1, 2, 3],
+        "b": [0, 4, 5, 6],
+        "c": [0, 7, 8, 9],
+    }
+    prereduced_operation_polytopes = {}
+
+    for operation in operations:
+        p = background_polytope if background_polytope is not None \
+            else everything_polytope
+        p = p.intersect(qlr_polytope)
+        p = p.union(rho_reflect(p, coordinates[target_coordinate]))
+        for value in coordinates.values():
+            p = p.intersect(cylinderize(alcove, value))
+        p = p.intersect(cylinderize(operation, coordinates["b"]))
+        p = p.intersect(cylinderize(alcove_c2, coordinates[target_coordinate]))
+
+        # project away the operation part
+        p = p.reduce()
+        for index in [6, 5, 4]:
+            p = project(p, index)
+            p = p.reduce()
+        prereduced_operation_polytopes[operation.operations[-1]] = p
+
+    return prereduced_operation_polytopes
+
+
 def build_coverage_set(
         operations: List[GatePolytope],
         chatty: bool = False,
@@ -155,6 +192,11 @@ def build_coverage_set(
 
     If `chatty` is toggled, emits progress messages.
     """
+
+    # start by generating precalculated operation polytopes
+    prereduced_operation_polytopes = prereduce_operation_polytopes(
+        operations
+    )
 
     # a collection of polytopes explored so far, and their union
     total_polytope = GatePolytope(
@@ -204,12 +246,18 @@ def build_coverage_set(
         
         # take the head's polytopes, adjoin the new gate (& its rotation),
         # calculate new polytopes, and add those polytopes to the working set
-        new_polytope = intersect_and_project(
-            target="c",
-            a_polytope=tail_polytope,
-            b_polytope=next_polytope,
-            c_polytope=everything_polytope,
-        )
+        # TODO: This used to be part of a call to `intersect_and_project`, which
+        #       we split up for efficiency.  See GH #13.
+        new_polytope = prereduced_operation_polytopes[
+            next_polytope.operations[-1]
+        ]
+        new_polytope = new_polytope.intersect(cylinderize(
+            tail_polytope, [0, 1, 2, 3], parent_dimension=7
+        ))
+        new_polytope = new_polytope.reduce()
+        for index in [3, 2, 1]:
+            new_polytope = project(new_polytope, index).reduce()
+        ### END USED TO BE INTERSECT_AND_PROJECT
         # specialize it from a Polytope to a GatePolytope
         new_polytope = GatePolytope(
             operations=next_polytope.operations,
@@ -240,7 +288,7 @@ def build_coverage_set(
         else:
             # the cheapest option that gets us to 100% is good enough.
             break
-                
+
     # one last flush
     necessary_polytopes += trim_polytope_set(
         to_be_reduced, fixed_polytopes=[total_polytope]

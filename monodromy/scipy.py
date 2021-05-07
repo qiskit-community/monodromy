@@ -16,7 +16,7 @@ import numpy as np
 import scipy
 from scipy.optimize import linprog
 
-from .coverage import GatePolytope, rho_reflect
+from .coverage import GatePolytope, prereduce_operation_polytopes, rho_reflect
 from .elimination import cylinderize, project
 from .examples import alcove_c2, exactly, fractionify
 from .qlr_table import alcove, qlr_polytope
@@ -50,9 +50,10 @@ def calculate_scipy_coverage_set(coverage_set, operations):
         "c": [0, 7, 8, 9],
     }
 
-    inflated_operation_polytope = {}
-    for operation_polytope in operations:
-        backsolution_polytope = Polytope(convex_subpolytopes=[
+    inflated_operation_polytope = prereduce_operation_polytopes(
+        operations=operations,
+        target_coordinate="a",
+        background_polytope=Polytope(convex_subpolytopes=[
             # fix CAN(a, *, *)
             ConvexPolytope(inequalities=fractionify([
                 [0,  1,  1, 0, 0, 0, 0, -1, -1, 0],
@@ -67,32 +68,8 @@ def calculate_scipy_coverage_set(coverage_set, operations):
             ConvexPolytope(inequalities=fractionify([
                 [0, 0,  1,  1, 0, 0, 0, 0, -1, -1],
                 [0, 0, -1, -1, 0, 0, 0, 0,  1,  1],
-            ])),
-        ])
-        backsolution_polytope = backsolution_polytope.intersect(qlr_polytope)
-        backsolution_polytope = backsolution_polytope.union(
-            rho_reflect(backsolution_polytope, coordinates["a"]))
-        # impose the "large" alcove constraints
-        for value in coordinates.values():
-            backsolution_polytope = backsolution_polytope.intersect(
-                cylinderize(alcove, value))
-
-        backsolution_polytope = backsolution_polytope.intersect(
-            cylinderize(operation_polytope, coordinates["b"]))
-
-        # project out the "b" coordinate, which is now fixed by this gate
-        backsolution_polytope = backsolution_polytope.reduce()
-        for index in [6, 5, 4]:
-            backsolution_polytope = project(backsolution_polytope, index)
-            backsolution_polytope = backsolution_polytope.reduce()
-
-        # restrict to the A_{C_2} part of the target coordinate
-        backsolution_polytope = backsolution_polytope.intersect(
-            cylinderize(alcove_c2, coordinates["a"], parent_dimension=7)
-        )
-
-        inflated_operation_polytope[operation_polytope.operations[0]] = \
-            backsolution_polytope
+            ]))]),
+    )
 
     scipy_coverage_set = []
 
@@ -230,7 +207,8 @@ def scipy_decomposition_hops(
         # (really on "c", but "b" has already been projected off)
         backsolution_polytope = backsolution_polytope.intersect(
             cylinderize(target_polytope, [0, 4, 5, 6],
-                        parent_dimension=7))
+                        parent_dimension=7)
+        )
 
         # walk over the backsolution polytopes, try to find one that's solvable
         shuffle(backsolution_polytope.convex_subpolytopes)

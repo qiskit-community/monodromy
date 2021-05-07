@@ -131,45 +131,54 @@ class Polytope:
         """
         Computes the Euclidean volume of this polytope.
         """
-        # NOTE: The volume of the union is not the straight-up sum of the
-        #       volumes of the parts, but rather the alternating sum of the
-        #       intersections of the parts. This is potentially expensive, since
-        #       it requires traversing the power set of the convex constituents.
-        #       We trim this tree by stopping the traversal whenever we see an
-        #       intersection with vanishing volume, since that means further
-        #       intersections also vanish: 0 <= vol(A) <= vol(B) for A <= B.
-        vanishing_indices = []
-        volume = PolytopeVolume(dimension=0, volume=Fraction(0, 1))
-
+        volume = PolytopeVolume(dimension=0, volume=Fraction(0))
         top_dimension = 0
         for convex_subpolytope in self.convex_subpolytopes:
-            top_dimension = max(top_dimension,
-                                convex_subpolytope.volume.dimension)
+            top_dimension = max(top_dimension, convex_subpolytope.volume.dimension)
 
-        for j in range(1, 2 ** len(self.convex_subpolytopes)):
-            # if this subset is known to vanish, skip it
-            if any([x == (j & x) for x in vanishing_indices]):
-                continue
-            # otherwise, calculate the bucket of inequalities
-            intersection = ConvexPolytope(inequalities=[])
-            sign = -1
-            for index, convex_subpolytope in enumerate(self.convex_subpolytopes):
-                if 0 != j & (1 << index):
-                    intersection = intersection.intersect(convex_subpolytope)
-                    sign *= -1
+        skip_masks = []
+        previous_volumes = [None] * (2 ** len(self.convex_subpolytopes))
+        for d in range(len(self.convex_subpolytopes)):
+            for bitstring in bit_iteration(len(self.convex_subpolytopes), 1 + d):
+                if any([mask & bitstring == mask for mask in skip_masks]):
+                    continue
 
-            # calculate its volume...
-            subvolume = intersection.volume
+                # calculate this intersection
+                intersection = ConvexPolytope(inequalities=[])
+                for index, convex_subpolytope in enumerate(self.convex_subpolytopes):
+                    if 0 != bitstring & (1 << index):
+                        intersection = intersection.intersect(convex_subpolytope)
+                previous_volumes[bitstring] = intersection.volume
 
-            # ... update the vanishing indices ...
-            if subvolume.dimension < top_dimension:
-                vanishing_indices.append(j)
+                # if this has vanishing volume, add it to the skip set
+                if previous_volumes[bitstring].dimension < top_dimension:
+                    skip_masks.append(bitstring)
 
-            # ... and account for it
-            if sign > 0:
-                volume = volume + subvolume
-            else:
-                volume = volume - subvolume
+                # if this overlaps with a previously unskipped parent, skip the parent
+                for parent_index in range(0, len(self.convex_subpolytopes)):
+                    parent_string = bitstring ^ (2 ** parent_index)
+                    if 0 == (2 ** parent_index) & bitstring:
+                        continue
+                    if (parent_string not in skip_masks and
+                            previous_volumes[bitstring] == previous_volumes[parent_string]):
+                        skip_masks.append(parent_string)
+                        # also, balance the volume so far
+                        if 1 == d % 2:
+                            volume = volume - previous_volumes[bitstring]
+                        else:
+                            volume = volume + previous_volumes[bitstring]
+                        # also, don't double up on parents
+                        break
+
+            # sum the signed volumes at this weight
+            for bitstring in bit_iteration(len(self.convex_subpolytopes), 1 + d):
+                if (previous_volumes[bitstring] is None or
+                        any([bitstring & mask == mask for mask in skip_masks])):
+                    continue
+                if 1 == d % 2:
+                    volume = volume - previous_volumes[bitstring]
+                else:
+                    volume = volume + previous_volumes[bitstring]
 
         return volume
 

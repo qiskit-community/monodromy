@@ -179,9 +179,10 @@ def build_coverage_set(
         
         # if this cost is bigger than the old cost, flush
         if next_polytope.cost > waiting_cost:
-            necessary_polytopes += trim_polytope_set(
+            to_be_reduced = trim_polytope_set(
                 to_be_reduced, fixed_polytopes=[total_polytope]
             )
+            necessary_polytopes += to_be_reduced
             for new_polytope in to_be_reduced:
                 total_polytope = total_polytope.union(new_polytope).reduce()
             to_be_reduced = []
@@ -216,7 +217,6 @@ def build_coverage_set(
             convex_subpolytopes=new_polytope.convex_subpolytopes
         )
 
-        new_polytope = new_polytope.reduce()
         to_be_reduced.append(new_polytope)
 
         if chatty:

@@ -254,10 +254,25 @@ class Polytope:
         Returns True when the other polytope is contained in this one.
         """
 
-        little_volume = other.volume
         intersection = other.intersect(self)
-        cap_volume = intersection.volume
 
+        # for n self.convex_subpolytopes and m other.convex_subpolytopes,
+        # computing these volumes takes worst-case 2^m + 2^(nm) calls to lrs.
+        # however, a necessary-but-insufficient condition for containment is
+        # a containment of vertex sets, which takes only m + nm calls to lrs.
+        # we check that first and short-circuit if it fails.
+
+        little_vertices = other.vertices
+        cap_vertices = intersection.vertices
+        for little_subvertices in little_vertices:
+            for vertex in little_subvertices:
+                if not any([vertex in cap_subvertices
+                            for cap_subvertices in cap_vertices]):
+                    return False
+
+        # now do the expensive version that also handles sufficiency
+        little_volume = other.volume
+        cap_volume = intersection.volume
         return cap_volume == little_volume
 
 
@@ -286,9 +301,11 @@ def trim_polytope_set(
             fixed_polytope = fixed_polytope.union(polytope)
 
     # sort them by volume, then traverse in ascending order
-    trimmable_polytopes = sorted(trimmable_polytopes,
-                                 key=lambda x: x.volume,
-                                 reverse=True)
+    trimmable_polytopes = sorted(
+        trimmable_polytopes,
+        key=lambda x: x.volume,
+        reverse=True,
+    )
     for index in range(len(trimmable_polytopes) - 1, -1, -1):
         # pick a polytope, test whether it's contained in the others
         this_polytope = trimmable_polytopes[index]

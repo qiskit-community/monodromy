@@ -73,6 +73,14 @@ class LRSBackend(Backend):
         vertices = decode_vertices(vertex_response)
         return [v[1:] for v in vertices]
 
+    @staticmethod
+    def triangulation(vertices: List[List[Fraction]]) -> List[Tuple]:
+        vertex_payload = encode_vertices([(1, *v) for v in vertices],
+                                         options=["triangulation"])
+        response = single_lrs_pass(vertex_payload)
+        simplices = decode_simplices(response)
+        return simplices["simplices"]
+
 
 def check_for_lrs():
     try:
@@ -174,8 +182,35 @@ def decode_inequalities(lrs_output: bytes):
     )
 
 
-def encode_vertices(vertices, name="name") -> bytes:
+def decode_simplices(lrs_output: bytes):
+    """Parse lrs output from a tetrahedral run into python data."""
+    simplices = []
+    for line in lrs_output.decode('utf-8').splitlines():
+        # initialize
+        if line.startswith('*lrs'):
+            simplices = []
+        if line.startswith('end'):
+            break
+        if line.startswith('F#'):
+            tokens = line.split()
+            position = tokens.index("vertices/rays")
+            indices = []
+            while True:
+                position += 1
+                try:
+                    indices.append(int(tokens[position]) - 1)
+                except ValueError:
+                    break
+            simplices.append(tuple(indices))
+
+    return dict(
+        simplices=simplices
+    )
+
+
+def encode_vertices(vertices, name="name", options=None) -> bytes:
     """Format `vertices` for consumption by lrs."""
+    options = [] if options is None else options
     output = ""
     output += name + "\n"
     output += "V-representation\n"
@@ -185,6 +220,8 @@ def encode_vertices(vertices, name="name") -> bytes:
         output += " ".join([str(x) for x in vertex]) + "\n"
     output += "end\n"
     output += "volume\n"
+    for option in options:
+        output += f"{option}\n"
 
     return output.encode()
 

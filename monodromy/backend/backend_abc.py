@@ -46,3 +46,12 @@ class Backend(ABC):
         Signals `NoFeasibleSolutions` if the ConvexPolytope has no solutions.
         """
         pass
+
+    @staticmethod
+    @abstractmethod
+    def triangulation(vertices):  # List[List[Fraction]] -> List[Tuple]
+        """
+        Given a set of vertices, calculate a triangulation of their convex hull.
+        Returns a list of 4-tuples of indices into the vertex sequence.
+        """
+        pass

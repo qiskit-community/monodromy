@@ -7,7 +7,7 @@ Basic data structures for manipulating (non/convex) polytopes.
 from copy import copy
 from dataclasses import dataclass, field
 from fractions import Fraction
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import monodromy.backend
 from monodromy.utilities import bit_iteration, clear_memoization, \
@@ -77,6 +77,12 @@ class ConvexPolytope:
             return monodromy.backend.backend.vertices(self)
         except monodromy.backend.backend_abc.NoFeasibleSolutions:
             return []
+
+    @memoized_property
+    def triangulation(self) -> List[Tuple]:
+        if 0 == len(self.vertices):
+            return []
+        return monodromy.backend.backend.triangulation(self.vertices)
 
     def reduce(self):  # -> ConvexPolytope
         """
@@ -243,7 +249,7 @@ class Polytope:
         for index, item in enumerate(self.convex_subpolytopes):
             output += str(item)
             if 1 + index < len(self.convex_subpolytopes):
-                output += "\n,"
+                output += ","
             output += "\n"
         output += "]"
 

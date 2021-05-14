@@ -1,6 +1,7 @@
 from monodromy.circuits import *
 from monodromy.coverage import *
 from monodromy.examples import *
+from monodromy.haar import expected_cost
 import monodromy.render
 
 operations = [
@@ -23,6 +24,9 @@ coverage_set = build_coverage_set(operations, chatty=True)
 # print it out for user inspection
 print("==== Done. Here's what we found: ====")
 print_coverage_set(coverage_set)
+
+print("==== Haar volumes ====")
+print(f"Haar-expectation cost: {expected_cost(coverage_set, chatty=True)}")
 
 # flex the rendering code
 print("==== Render these in Mathematica: =====")

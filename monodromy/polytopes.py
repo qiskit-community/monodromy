@@ -124,6 +124,80 @@ class ConvexPolytope:
         return all([v in cap_vertices for v in other.vertices])
 
 
+def alternating_sum(polytope, volume_fn):
+    """
+    Efficiently computes the inclusion-exclusion alternating sum for the volume
+    of a `Polytope`, as computed by `volume_fn` on its convex intersections.
+
+    `volume_fn` is required to be:
+
+        + real-valued,
+        + strictly monotonic: if A ≤ B, then vol(A) ≤ vol(B),
+                              with equality only if A = B,
+        + weakly additive: vol(A u B) ≤ vol(A) + vol(B).
+    """
+    volume = 0
+
+    skip_masks = []
+    previous_volumes = {}
+    for d in range(len(polytope.convex_subpolytopes)):
+        for bitstring in bit_iteration(length=len(polytope.convex_subpolytopes),
+                                       weight=1 + d):
+            if any([mask & bitstring == mask for mask in skip_masks]):
+                continue
+
+
+            if d >= 1:
+                # calculate this intersection
+                intersection = ConvexPolytope(inequalities=[])
+                for index, convex_subpolytope in enumerate(polytope.convex_subpolytopes):
+                    if 0 != bitstring & (1 << index):
+                        intersection = intersection.intersect(convex_subpolytope)
+                previous_volumes[bitstring] = volume_fn(intersection)
+            else:
+                for index, convex_subpolytope in enumerate(polytope.convex_subpolytopes):
+                    if 0 != bitstring & (1 << index):
+                        previous_volumes[bitstring] = volume_fn(convex_subpolytope)
+
+            # if this has vanishing volume, add it to the skip set
+            if previous_volumes[bitstring] == 0:
+                skip_masks.append(bitstring)
+
+            # if this overlaps with a previously unskipped parent, skip the parent
+            for parent_index in range(0, len(polytope.convex_subpolytopes)):
+                parent_string = bitstring ^ (2 ** parent_index)
+                if 0 == (2 ** parent_index) & bitstring:
+                    continue
+                if (parent_string not in skip_masks and
+                        previous_volumes[bitstring] == previous_volumes.get(
+                            parent_string, None)):
+                    skip_masks.append(parent_string)
+                    # also, balance the volume so far
+                    if 1 == d % 2:
+                        volume = volume - previous_volumes[bitstring]
+                    else:
+                        volume = volume + previous_volumes[bitstring]
+                    # also, don't double up on parents
+                    break
+
+        # sum the signed volumes at this weight
+        did_work = False
+        for bitstring in bit_iteration(length=len(polytope.convex_subpolytopes),
+                                       weight=1 + d):
+            if (previous_volumes.get(bitstring, None) is None or
+                    any([bitstring & mask == mask for mask in skip_masks])):
+                continue
+            did_work = True
+            if 1 == d % 2:
+                volume = volume - previous_volumes[bitstring]
+            else:
+                volume = volume + previous_volumes[bitstring]
+        if not did_work:
+            break
+
+    return volume
+
+
 @dataclass
 class Polytope:
     """
@@ -137,56 +211,24 @@ class Polytope:
         """
         Computes the Euclidean volume of this polytope.
         """
-        volume = PolytopeVolume(dimension=0, volume=Fraction(0))
+
         top_dimension = 0
         for convex_subpolytope in self.convex_subpolytopes:
-            top_dimension = max(top_dimension, convex_subpolytope.volume.dimension)
+            top_dimension = max(top_dimension,
+                                convex_subpolytope.volume.dimension)
 
-        skip_masks = []
-        previous_volumes = [None] * (2 ** len(self.convex_subpolytopes))
-        for d in range(len(self.convex_subpolytopes)):
-            for bitstring in bit_iteration(len(self.convex_subpolytopes), 1 + d):
-                if any([mask & bitstring == mask for mask in skip_masks]):
-                    continue
+        def unwrapped_volume(convex_polytope):
+            if convex_polytope.volume.dimension == top_dimension:
+                return convex_polytope.volume.volume
+            else:
+                return 0
 
-                # calculate this intersection
-                intersection = ConvexPolytope(inequalities=[])
-                for index, convex_subpolytope in enumerate(self.convex_subpolytopes):
-                    if 0 != bitstring & (1 << index):
-                        intersection = intersection.intersect(convex_subpolytope)
-                previous_volumes[bitstring] = intersection.volume
+        volume = alternating_sum(
+            polytope=self,
+            volume_fn=unwrapped_volume,
+        )
 
-                # if this has vanishing volume, add it to the skip set
-                if previous_volumes[bitstring].dimension < top_dimension:
-                    skip_masks.append(bitstring)
-
-                # if this overlaps with a previously unskipped parent, skip the parent
-                for parent_index in range(0, len(self.convex_subpolytopes)):
-                    parent_string = bitstring ^ (2 ** parent_index)
-                    if 0 == (2 ** parent_index) & bitstring:
-                        continue
-                    if (parent_string not in skip_masks and
-                            previous_volumes[bitstring] == previous_volumes[parent_string]):
-                        skip_masks.append(parent_string)
-                        # also, balance the volume so far
-                        if 1 == d % 2:
-                            volume = volume - previous_volumes[bitstring]
-                        else:
-                            volume = volume + previous_volumes[bitstring]
-                        # also, don't double up on parents
-                        break
-
-            # sum the signed volumes at this weight
-            for bitstring in bit_iteration(len(self.convex_subpolytopes), 1 + d):
-                if (previous_volumes[bitstring] is None or
-                        any([bitstring & mask == mask for mask in skip_masks])):
-                    continue
-                if 1 == d % 2:
-                    volume = volume - previous_volumes[bitstring]
-                else:
-                    volume = volume + previous_volumes[bitstring]
-
-        return volume
+        return PolytopeVolume(dimension=top_dimension, volume=volume)
 
     @memoized_property
     def vertices(self):

@@ -40,7 +40,7 @@ qc = xx_circuit_from_decomposition(
 print("The following circuit implements the canonical gate at "
       f"{[str(x) for x in alcove_coordinate]}: ", end="")
 print((abs(qiskit.quantum_info.Operator(qc).data -
-           canonical_matrix(*alcove_to_canonical_coordinate(*alcove_coordinate)))
+           canonical_matrix(*alcove_to_positive_canonical_coordinate(*alcove_coordinate)))
        < 0.01).all())
 
 print(qc)

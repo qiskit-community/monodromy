@@ -1,18 +1,26 @@
 """
 monodromy/coordinates.py
 
-There are two common coordinate systems / choices of Weyl alcove in su_4:
+There are several common coordinate systems / choices of Weyl alcove in su_4:
 
-+ Canonical parameters: These are the (a, b, c) in the exponential formula:
++ (Balanced) canonical parameters: These are the (a, b, c) in the exponential
 
       exp(-i(a XX + b YY + c ZZ))
 
-  with a, b, c further chosen to satisfy pi/4 >= a >= b >= |c|.
+  with a, b, c further chosen to satisfy pi/4 ≥ a ≥ b ≥ |c|.
+
++ (Positive) canonical parameters: These are the (a, b, c) in the exponential
+
+      exp(-i(a XX + b YY + c ZZ))
+
+  with a, b, c further chosen to satisfy a ≥ b ≥ c ≥ 0 and pi - a ≥ b.
+
 + Alcove coordinates: These are the alpha, beta, delta in the formula
 
-      exp(diag(i a, i b, i c, -i(a + b + c)),
+      exp(diag(2 pi i a, 2 pi i b, 2 pi i c, -2 pi i(a + b + c)),
 
-  with a, b, c further chosen to satisfy a >= b >= c, a - 1 >= -(a + b + c).
+  with a, b, c further chosen to satisfy a ≥ b ≥ c ≥ -(a + b + c) ≥ a - 1 and
+  c + 1/2 ≥ a.
 
 (Working in pu_4 adds one extra inequality, enforced elsewhere in this repo
 by reflection through the `rho` operator.)
@@ -20,9 +28,24 @@ by reflection through the `rho` operator.)
 This file contains routines for converting from one system to another.
 """
 
+from copy import copy
 from functools import reduce
 
 import numpy as np
+
+from .polytopes import ConvexPolytope, Polytope
+from .utilities import fractionify
+
+
+positive_canonical_convex_polytope = ConvexPolytope(
+    inequalities=fractionify([
+        [1, -1, 0, 0],  # cf. Eqn 6 of Entropy
+        [0, 1, -1, 0],
+        [0, 0, 1, -1],
+        [0, 0, 0, 1],
+        [1, -1, -1, 0]
+    ])
+)
 
 
 def normalize_logspec_A(coordinate):
@@ -66,10 +89,10 @@ def unitary_to_alcove_coordinate(unitary):
     """
     unitary = unitary * np.linalg.det(unitary) ** (-1 / 4)
     sysy = np.array([
-        [0, 0, 0, 1],
-        [0, 0, -1, 0],
-        [0, -1, 0, 0],
-        [1, 0, 0, 0],
+        [0,  0,  0, 1],
+        [0,  0, -1, 0],
+        [0, -1,  0, 0],
+        [1,  0,  0, 0],
     ], dtype=complex)
     gammaQ = reduce(np.dot, [unitary, sysy, unitary.T, sysy])
     logspec_coordinate = np.real(
@@ -79,7 +102,7 @@ def unitary_to_alcove_coordinate(unitary):
     )
 
 
-def alcove_to_canonical_coordinate(x, y, z):
+def alcove_to_positive_canonical_coordinate(x, y, z):
     """
     Given an alcove coordinate, produces its image as a canonical coordinate.
     """
@@ -100,6 +123,50 @@ def alcove_to_canonical_coordinate(x, y, z):
         )
 
     return retval
+
+
+def monodromy_to_positive_canonical_polytope(monodromy_polytope):
+    """
+    Converts a Polytope in monodromy coordinates to the corresponding Polytope
+    in (positive) canonical coordinates.
+    """
+    canonical_convex_subpolytopes = []
+    for convex_subpolytope in monodromy_polytope.convex_subpolytopes:
+        inequalities, equalities = [], []
+        reflected_inequalities, reflected_equalities = [], []
+        for inequality in convex_subpolytope.inequalities:
+            k, x, y, z = inequality
+            new_inequality = [k, x + y - z, x - y + z, -x + y + z]
+            inequalities.append(new_inequality)
+            reflected_inequalities.append(
+                [new_inequality[0] + new_inequality[1] / 2,
+                 -new_inequality[1], new_inequality[2], -new_inequality[3]]
+            )
+        for equality in convex_subpolytope.equalities:
+            k, x, y, z = equality
+            new_equality = [k, x + y - z, x - y + z, -x + y + z]
+            equalities.append(new_equality)
+            reflected_equalities.append(
+                [new_equality[0] + new_equality[1] / 2,
+                 -new_equality[1], new_equality[2], -new_equality[3]]
+            )
+
+        canonical_convex_subpolytopes.append(ConvexPolytope(
+            inequalities=inequalities,
+            equalities=equalities,
+        ))
+        canonical_convex_subpolytopes.append(ConvexPolytope(
+            inequalities=reflected_inequalities,
+            equalities=reflected_equalities,
+        ))
+
+    canonical_polytope = copy(monodromy_polytope)
+    canonical_polytope.convex_subpolytopes = canonical_convex_subpolytopes
+    canonical_polytope = canonical_polytope.intersect(
+        Polytope(convex_subpolytopes=[positive_canonical_convex_polytope]))
+    canonical_polytope = canonical_polytope.reduce()
+
+    return canonical_polytope
 
 
 # TODO: This needs a corresponding scissors congruence branch.

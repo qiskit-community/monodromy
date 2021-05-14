@@ -19,7 +19,8 @@ import qiskit
 from qiskit.circuit.library import RXGate, RYGate, RZGate
 import qiskit.quantum_info
 
-from .coordinates import alcove_to_canonical_coordinate, unitary_to_alcove_coordinate
+from .coordinates import alcove_to_positive_canonical_coordinate,\
+    unitary_to_alcove_coordinate
 from .coverage import intersect_and_project, GatePolytope
 from .decompose import decompose_xxyy_into_xxyy_xx
 from .examples import exactly, fractionify, canonical_matrix
@@ -274,7 +275,7 @@ def xx_circuit_from_decomposition(
     Returns a QISKit circuit modeling the decomposed interaction.
     """
     canonical_coordinate_table = {
-        operation.operations[0]: alcove_to_canonical_coordinate(
+        operation.operations[0]: alcove_to_positive_canonical_coordinate(
             *operation.convex_subpolytopes[0].vertices[0])
         for operation in operations
     }
@@ -307,8 +308,8 @@ def xx_circuit_from_decomposition(
     # from here, we have to work.
     for decomposition_depth, (source_alcove_coord, operation, target_alcove_coord) \
             in enumerate(decomposition[1:]):
-        source_canonical_coord = alcove_to_canonical_coordinate(*source_alcove_coord)
-        target_canonical_coord = alcove_to_canonical_coordinate(*target_alcove_coord)
+        source_canonical_coord = alcove_to_positive_canonical_coordinate(*source_alcove_coord)
+        target_canonical_coord = alcove_to_positive_canonical_coordinate(*target_alcove_coord)
 
         permute_source_for_overlap, permute_target_for_overlap = None, None
 
@@ -437,7 +438,7 @@ def sample_irreducible_circuit(coverage_set, operations, target_gate_polytope):
     operation_gates = {
         operation.operations[0]:
             qiskit.extensions.UnitaryGate(
-                canonical_matrix(*alcove_to_canonical_coordinate(
+                canonical_matrix(*alcove_to_positive_canonical_coordinate(
                     *operation.convex_subpolytopes[0].vertices[0])),
                 label=f"CAN({operation.operations[0]})"
             )

@@ -9,7 +9,8 @@ from fractions import Fraction
 import numpy as np
 
 from .polytopes import ConvexPolytope, make_convex_polytope, Polytope
-from .qlr_table import fractionify, alcove_c2
+from .qlr_table import alcove_c2
+from .utilities import fractionify
 
 
 def exactly(*coordinates) -> Polytope:

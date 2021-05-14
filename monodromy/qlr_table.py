@@ -8,6 +8,7 @@ from fractions import Fraction
 from typing import List
 
 from .polytopes import make_convex_polytope
+from .utilities import fractionify
 
 
 """
@@ -130,16 +131,6 @@ This houses the monodromy polytope, the main static input of the whole calc'n.
 This polytope does _not_ also contain the alcove constraints.
 """
 qlr_polytope = make_convex_polytope(generate_qlr_inequalities())
-
-
-def fractionify(table) -> List[List[Fraction]]:
-    """
-    Convenience routine for not writing Fraction() a whole bunch.
-
-    NOTE: This can be poorly behaved if your rationals don't have exact floating
-          point representations!
-    """
-    return [[Fraction(i) for i in j] for j in table]
 
 
 """

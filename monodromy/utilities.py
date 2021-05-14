@@ -1,4 +1,13 @@
+"""
+monodromy/utilities.py
+
+Depository for generic python utility snippets.
+"""
+
+
+from fractions import Fraction
 from functools import wraps
+from typing import List
 
 
 memoized_attr_bucket = '_memoized_attrs'
@@ -40,3 +49,13 @@ def bit_iteration(length, weight):
         yield pattern
         t = (pattern | (pattern - 1)) + 1
         pattern = t | ((((t & -t) // (pattern & -pattern)) >> 1) - 1)
+
+
+def fractionify(table) -> List[List[Fraction]]:
+    """
+    Convenience routine for not writing Fraction() a whole bunch.
+
+    NOTE: This can be poorly behaved if your rationals don't have exact floating
+          point representations!
+    """
+    return [[Fraction(i) for i in j] for j in table]

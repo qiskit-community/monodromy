@@ -12,7 +12,7 @@ from fractions import Fraction
 import math  # gcd
 from os import getenv
 from subprocess import Popen, PIPE
-from typing import List, Tuple
+from typing import List
 
 from .backend_abc import Backend, NoFeasibleSolutions
 from ..polytopes import ConvexPolytope, PolytopeVolume
@@ -74,7 +74,7 @@ class LRSBackend(Backend):
         return [v[1:] for v in vertices]
 
     @staticmethod
-    def triangulation(vertices: List[List[Fraction]]) -> List[Tuple]:
+    def triangulation(vertices: List[List[Fraction]]) -> List[List]:
         vertex_payload = encode_vertices([(1, *v) for v in vertices],
                                          options=["triangulation"])
         response = single_lrs_pass(vertex_payload)
@@ -201,7 +201,7 @@ def decode_simplices(lrs_output: bytes):
                     indices.append(int(tokens[position]) - 1)
                 except ValueError:
                     break
-            simplices.append(tuple(indices))
+            simplices.append(indices)
 
     return dict(
         simplices=simplices

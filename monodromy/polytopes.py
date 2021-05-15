@@ -7,7 +7,7 @@ Basic data structures for manipulating (non/convex) polytopes.
 from copy import copy
 from dataclasses import dataclass, field
 from fractions import Fraction
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import monodromy.backend
 from monodromy.utilities import bit_iteration, clear_memoization, \
@@ -79,7 +79,7 @@ class ConvexPolytope:
             return []
 
     @memoized_property
-    def triangulation(self) -> List[Tuple]:
+    def triangulation(self) -> List[List]:
         if 0 == len(self.vertices):
             return []
         return monodromy.backend.backend.triangulation(self.vertices)
@@ -136,66 +136,76 @@ def alternating_sum(polytope, volume_fn):
                               with equality only if A = B,
         + weakly additive: vol(A u B) ≤ vol(A) + vol(B).
     """
-    volume = 0
+    total_volume = 0
 
-    skip_masks = []
+    vanishing_skip_masks = []
+    clever_skip_masks = []
+
     previous_volumes = {}
     for d in range(len(polytope.convex_subpolytopes)):
+        volumes = {}
         for bitstring in bit_iteration(length=len(polytope.convex_subpolytopes),
-                                       weight=1 + d):
-            if any([mask & bitstring == mask for mask in skip_masks]):
+                                       weight=1 + d):\
+            # if this is guaranteed to be zero, skip it
+            if any([mask & bitstring == mask for mask in vanishing_skip_masks]):
                 continue
 
-
-            if d >= 1:
-                # calculate this intersection
-                intersection = ConvexPolytope(inequalities=[])
-                for index, convex_subpolytope in enumerate(polytope.convex_subpolytopes):
-                    if 0 != bitstring & (1 << index):
-                        intersection = intersection.intersect(convex_subpolytope)
-                previous_volumes[bitstring] = volume_fn(intersection)
-            else:
-                for index, convex_subpolytope in enumerate(polytope.convex_subpolytopes):
-                    if 0 != bitstring & (1 << index):
-                        previous_volumes[bitstring] = volume_fn(convex_subpolytope)
-
-            # if this has vanishing volume, add it to the skip set
-            if previous_volumes[bitstring] == 0:
-                skip_masks.append(bitstring)
-
-            # if this overlaps with a previously unskipped parent, skip the parent
-            for parent_index in range(0, len(polytope.convex_subpolytopes)):
-                parent_string = bitstring ^ (2 ** parent_index)
-                if 0 == (2 ** parent_index) & bitstring:
-                    continue
-                if (parent_string not in skip_masks and
-                        previous_volumes[bitstring] == previous_volumes.get(
-                            parent_string, None)):
-                    skip_masks.append(parent_string)
-                    # also, balance the volume so far
-                    if 1 == d % 2:
-                        volume = volume - previous_volumes[bitstring]
-                    else:
-                        volume = volume + previous_volumes[bitstring]
-                    # also, don't double up on parents
+            # if this is inheritable from the previous stage, inherit it
+            for mask, toggle in clever_skip_masks:
+                if (mask & bitstring == mask) and (bitstring & toggle != 0):
+                    volumes[bitstring] = previous_volumes[bitstring ^ toggle]
                     break
 
+            # if we still haven't inherited it, calculate it from scratch
+            if volumes.get(bitstring, None) is None:
+                intersection = ConvexPolytope(inequalities=[])
+                for index, convex_subpolytope in enumerate(polytope.convex_subpolytopes):
+                    if 0 != (bitstring & (1 << index)):
+                        intersection = intersection.intersect(convex_subpolytope)
+                volumes[bitstring] = volume_fn(intersection)
+
+            # if this (freshly calculated value) has vanishing volume, add it to the skip set
+            if volumes[bitstring] == 0:
+                vanishing_skip_masks.append(bitstring)
+
+            # if this overlaps with a parent not already related to this, record the relation
+            for parent_index in range(0, len(polytope.convex_subpolytopes)):
+                toggle = 2 ** parent_index
+                parent_string = bitstring ^ toggle
+
+                # ensure this is a parent of our string
+                if 0 == toggle & bitstring:
+                    continue
+
+                # ensure that our volume matches our parent's
+                if (volumes[bitstring] != previous_volumes.get(parent_string, None)):
+                    continue
+
+                # ensure we're not already related by a mask
+                if any([(parent_string & mask == mask) and (mask_toggle == toggle)
+                        for mask, mask_toggle in clever_skip_masks]):
+                    continue
+
+                # record this fresh mask :)
+                clever_skip_masks.append((parent_string, toggle))
+
         # sum the signed volumes at this weight
-        did_work = False
+        # TODO: find an early stopping condition
         for bitstring in bit_iteration(length=len(polytope.convex_subpolytopes),
                                        weight=1 + d):
-            if (previous_volumes.get(bitstring, None) is None or
-                    any([bitstring & mask == mask for mask in skip_masks])):
+            if (volumes.get(bitstring, None) is None):
                 continue
-            did_work = True
+            if any([mask & bitstring == mask for mask in vanishing_skip_masks]):
+                continue
             if 1 == d % 2:
-                volume = volume - previous_volumes[bitstring]
+                total_volume = total_volume - volumes[bitstring]
             else:
-                volume = volume + previous_volumes[bitstring]
-        if not did_work:
-            break
+                total_volume = total_volume + volumes[bitstring]
 
-    return volume
+        # rotate the volume records
+        previous_volumes = volumes
+
+    return total_volume
 
 
 @dataclass

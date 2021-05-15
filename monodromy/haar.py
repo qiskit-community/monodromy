@@ -18,6 +18,10 @@ def _haar_volume_tetrahedron(tetrahedron):
     """
     Integrates the PU(4) Haar form, expressed in positive canonical coordinates,
     over a 3D tetrahedron.
+
+    See Watts, O'Connor, and Vala's _Metric Structure of the Space of Two-Qubit
+    Gates, Perfect Entanglers and Quantum Control_, Equation (27), which we've
+    rewritten one step further to remove all products.
     """
     tetrahedron = list([list(x) for x in tetrahedron])
 
@@ -105,7 +109,7 @@ def expected_cost(coverage_set, chatty=False):
     polytope_so_far = empty_polytope
 
     if chatty:
-        print("   Total vol\t |   Fresh vol\t | Sequence name")
+        print("   Total vol.\t |   Fresh vol.\t | Sequence name")
 
     for polytope in coverage_set:
         polytope = monodromy_to_positive_canonical_polytope(polytope)
@@ -115,8 +119,8 @@ def expected_cost(coverage_set, chatty=False):
         )
         if chatty:
             print(
-                f"{float(100 * positive_volume):8.2f}%"
-                f"\t | {float(100 * (positive_volume - negative_volume)):8.2f}%"
+                f"{float(100 * positive_volume):9.2f}%"
+                f"\t | {float(100 * (positive_volume - negative_volume)):9.2f}%"
                 f"\t | {'.'.join(polytope.operations)}")
         expected_cost += polytope.cost * (positive_volume - negative_volume)
         polytope_so_far = polytope_so_far.union(polytope).reduce()

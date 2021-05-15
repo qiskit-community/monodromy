@@ -416,9 +416,9 @@ def random_alcove_coordinate(denominator=100):
         min(first_numerator, (3 * denominator - 6 * first_numerator) // 2)
     )
     third_numerator = randint(
-        max(-(first_numerator + second_numerator) // 2,
+        max(-(first_numerator + second_numerator) // 2 + 1,
             -(denominator - 2 * first_numerator) // 2),
-        min(second_numerator,
+        min(second_numerator + 1,
             denominator - 2 * first_numerator - second_numerator)
     )
 

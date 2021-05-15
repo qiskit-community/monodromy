@@ -49,7 +49,7 @@ class Backend(ABC):
 
     @staticmethod
     @abstractmethod
-    def triangulation(vertices):  # List[List[Fraction]] -> List[Tuple]
+    def triangulation(vertices):  # List[List[Fraction]] -> List[List]
         """
         Given a set of vertices, calculate a triangulation of their convex hull.
         Returns a list of 4-tuples of indices into the vertex sequence.

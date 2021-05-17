@@ -87,6 +87,8 @@ class ConvexPolytope:
     def reduce(self):  # -> ConvexPolytope
         """
         Produces an equivalent convex body with irredundant inequalities.
+
+        Raises NoFeasibleSolutions if the reduced polytope is empty.
         """
         return monodromy.backend.backend.reduce(self)
 

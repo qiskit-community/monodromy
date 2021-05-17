@@ -52,11 +52,10 @@ class LRSBackend(Backend):
 
         inequalities = convex_polytope.inequalities
         equalities = convex_polytope.equalities
-        inequality_payload = encode_inequalities(inequalities, equalities)
-        vertex_response = single_lrs_pass(inequality_payload)
-        vertices = decode_vertices(vertex_response)
-        vertex_payload = encode_vertices(vertices)
-        inequality_response = single_lrs_pass(vertex_payload)
+        inequality_payload = encode_inequalities(
+            inequalities, equalities, options=["redund 0 0"]  # lrs ≥ 7.1
+        )
+        inequality_response = single_lrs_pass(inequality_payload)
         inequality_dictionary = decode_inequalities(inequality_response)
 
         clone.inequalities = inequality_dictionary["inequalities"]
@@ -100,9 +99,11 @@ def single_lrs_pass(payload: bytes) -> bytes:
     return stdout
 
 
-def encode_inequalities(inequalities, equalities=None, name="name") -> bytes:
+def encode_inequalities(inequalities, equalities=None, name="name",
+                        options=None) -> bytes:
     """Format `inequalities` for consumption by lrs."""
     equalities = equalities if equalities is not None else []
+    options = options if options is not None else []
     output = ""
     output += name + "\n"
     output += "H-representation\n"
@@ -120,6 +121,8 @@ def encode_inequalities(inequalities, equalities=None, name="name") -> bytes:
         gcd = abs(gcd)
         output += " ".join([str(x * gcd) for x in row]) + "\n"
     output += "end\n"
+    for option in options:
+        output += f"{option}\n"
 
     return output.encode()
 
@@ -131,6 +134,7 @@ def decode_inequalities(lrs_output: bytes):
     name = None
     equality_indices = []
     invocation_signature = None
+    break_at_end = False
     for line in lrs_output.decode('utf-8').splitlines():
         # initialize
         if line.startswith('*lrs') and line != invocation_signature:
@@ -150,12 +154,19 @@ def decode_inequalities(lrs_output: bytes):
             continue
         # ignore begin / end, assume they're in the right place
         if line.startswith('end'):
-            continue
+            if break_at_end:
+                break
+            else:
+                continue
         if line.startswith('begin'):
             rows = []
             continue
         # skip the table size, if it's present
         if 'rational' in line:
+            continue
+        # skip echoed option
+        if line.startswith('redund'):
+            break_at_end = True
             continue
         # check that we're looking at the right kind of representation
         if line == 'H-representation':
@@ -169,8 +180,11 @@ def decode_inequalities(lrs_output: bytes):
         rows.append([Fraction(x) for x in line.split()])
 
     if 0 == len(rows):
-        print(lrs_output.decode('utf-8'))
-        raise TypeError("Something bad happened in `lrs`.")
+        if break_at_end:
+            raise NoFeasibleSolutions()
+        else:
+            print(lrs_output.decode('utf-8'))
+            raise TypeError("Something bad happened in `lrs`.")
 
     return dict(
         inequalities=[row for index, row in enumerate(rows)

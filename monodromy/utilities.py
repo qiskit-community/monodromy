@@ -51,6 +51,21 @@ def bit_iteration(length, weight):
         pattern = t | ((((t & -t) // (pattern & -pattern)) >> 1) - 1)
 
 
+def bitcount(bits):
+    return bin(bits).count('1')
+
+
+def bitscatter(bits, mask):
+    """
+    Scatters the contents of bitvector `bits` onto the raised bits in `mask`.
+    """
+    value = 0
+    mask_walker = enumerate(reversed(bin(mask)[2:]))
+    for bit_index, mask_index in enumerate([x for x, y in mask_walker if y == '1']):
+        value |= (bits & (1 << bit_index)) << (mask_index - bit_index)
+    return value
+
+
 def fractionify(table) -> List[List[Fraction]]:
     """
     Convenience routine for not writing Fraction() a whole bunch.

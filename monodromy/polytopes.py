@@ -117,6 +117,14 @@ class ConvexPolytope:
             equalities=self.equalities + other.equalities,
         )
 
+    def has_element(self, point) -> bool:
+        return (all([0 <= inequality[0] + sum(x * y for x, y in
+                                              zip(point, inequality[1:]))
+                     for inequality in self.inequalities]) and
+                all([0 == equality[0] + sum(x * y for x, y in
+                                            zip(point, equality[1:]))
+                     for equality in self.equalities]))
+
     def contains(self, other) -> bool:
         """
         Returns True when this convex body is contained in the right-hand one.
@@ -309,28 +317,26 @@ class Polytope:
 
         return output
 
+    def has_element(self, point) -> bool:
+        return any([cp.has_element(point) for cp in self.convex_subpolytopes])
+
     def contains(self, other) -> bool:
         """
         Returns True when the other polytope is contained in this one.
         """
-
-        intersection = other.intersect(self)
-
         # for n self.convex_subpolytopes and m other.convex_subpolytopes,
         # computing these volumes takes worst-case 2^m + 2^(nm) calls to lrs.
         # however, a necessary-but-insufficient condition for containment is
         # a containment of vertex sets, which takes only m + nm calls to lrs.
         # we check that first and short-circuit if it fails.
 
-        little_vertices = other.vertices
-        cap_vertices = intersection.vertices
-        for little_subvertices in little_vertices:
-            for vertex in little_subvertices:
-                if not any([vertex in cap_subvertices
-                            for cap_subvertices in cap_vertices]):
+        for other_subvertices in other.vertices:
+            for other_vertex in other_subvertices:
+                if not self.has_element(other_vertex):
                     return False
 
         # now do the expensive version that also handles sufficiency
+        intersection = other.intersect(self)
         little_volume = other.volume
         cap_volume = intersection.volume
         return cap_volume == little_volume

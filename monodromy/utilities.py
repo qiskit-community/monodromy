@@ -74,3 +74,13 @@ def fractionify(table) -> List[List[Fraction]]:
           point representations!
     """
     return [[Fraction(i) for i in j] for j in table]
+
+
+def lcm(*numbers):
+    import math
+
+    assert 1 <= len(numbers)
+    ret = numbers[0]
+    for number in numbers[1:]:
+        ret = ret * number // math.gcd(ret, number)
+    return ret

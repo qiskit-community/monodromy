@@ -16,6 +16,7 @@ from typing import List
 
 from .backend_abc import Backend, NoFeasibleSolutions
 from ..polytopes import ConvexPolytope, PolytopeVolume
+from ..utilities import lcm
 
 
 """Environment variable used to override the path to the `lrs` executable."""
@@ -115,11 +116,8 @@ def encode_inequalities(inequalities, equalities=None, name="name",
                f" {len((inequalities + equalities)[0])}"
                " rational\n")
     for row in inequalities + equalities + [[-x for x in eq] for eq in equalities]:
-        gcd = 1
-        for x in row:
-            gcd = math.gcd(gcd, x.denominator)
-        gcd = abs(gcd)
-        output += " ".join([str(x * gcd) for x in row]) + "\n"
+        row_lcm = abs(lcm(*[x.denominator for x in row]))
+        output += " ".join([str(x * row_lcm) for x in row]) + "\n"
     output += "end\n"
     for option in options:
         output += f"{option}\n"

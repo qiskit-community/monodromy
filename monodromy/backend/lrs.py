@@ -50,12 +50,13 @@ class LRSBackend(Backend):
     def reduce(convex_polytope: ConvexPolytope) -> ConvexPolytope:
         clone = copy(convex_polytope)
 
-        if 0 == len(convex_polytope.vertices):
-            raise NoFeasibleSolutions()
-
-        vertex_payload = encode_vertices([[Fraction(1, 1), *v]
-                                          for v in convex_polytope.vertices])
-        inequality_response = single_lrs_pass(vertex_payload)
+        inequalities = convex_polytope.inequalities
+        equalities = convex_polytope.equalities
+        inequality_payload = encode_inequalities(
+            inequalities, equalities,
+            options=["redund 0 0"]  # lrs ≥ 7.1
+        )
+        inequality_response = single_lrs_pass(inequality_payload)
         inequality_dictionary = decode_inequalities(inequality_response)
 
         clone.inequalities = inequality_dictionary["inequalities"]

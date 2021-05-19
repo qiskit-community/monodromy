@@ -46,7 +46,6 @@ shift_options = {
 }
 
 
-
 def apply_reflection(reflection_name, coordinate, q):
     """
     Given a reflection type and a canonical coordinate, applies the reflection
@@ -96,6 +95,7 @@ def l1_distance(x, y):
     return sum([abs(xx - yy) for xx, yy in zip(x, y)])
 
 
+# NOTE: if `point_polytope` were an actual point, you could use .has_element .
 def cheapest_container(coverage_set, point_polytope):
     """
     Finds the least costly coverage polytope in `coverage_set` which intersects

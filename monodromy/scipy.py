@@ -174,6 +174,7 @@ def scipy_decomposition_hops(
     decomposition = []  # retval
     working_polytope = None
 
+    # NOTE: if `target_polytope` were an actual point, could use .has_element
     best_cost = float("inf")
     for polytope in coverage_set:
         if polytope.cost < best_cost:

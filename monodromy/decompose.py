@@ -5,7 +5,6 @@ Routines for decomposing canonical gates into certain interactions.
 """
 
 from functools import reduce
-import warnings
 
 import numpy as np
 

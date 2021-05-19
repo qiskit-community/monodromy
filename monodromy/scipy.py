@@ -16,10 +16,9 @@ import numpy as np
 import scipy
 from scipy.optimize import linprog
 
-from .coverage import GatePolytope, prereduce_operation_polytopes, rho_reflect
-from .elimination import cylinderize, project
-from .examples import alcove_c2, exactly, fractionify
-from .qlr_table import alcove, qlr_polytope
+from .coverage import GatePolytope, prereduce_operation_polytopes
+from .elimination import cylinderize
+from .examples import exactly, fractionify
 from .polytopes import ConvexPolytope, Polytope
 
 

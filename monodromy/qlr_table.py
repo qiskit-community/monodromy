@@ -5,7 +5,6 @@ Precomputed descriptions of the monodromy polytope for SU(4) and PU(4).
 """
 
 from fractions import Fraction
-from typing import List
 
 from .polytopes import make_convex_polytope
 from .utilities import fractionify

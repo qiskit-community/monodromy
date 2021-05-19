@@ -82,7 +82,7 @@ class ConvexPolytope:
     def triangulation(self) -> List[List]:
         if 0 == len(self.vertices):
             return []
-        return monodromy.backend.backend.triangulation(self.vertices)
+        return monodromy.backend.backend.triangulation(self)
 
     def reduce(self):  # -> ConvexPolytope
         """

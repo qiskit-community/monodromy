@@ -257,7 +257,6 @@ def build_coverage_set(
         new_polytope = new_polytope.reduce()
         for index in [3, 2, 1]:
             new_polytope = project(new_polytope, index).reduce()
-        ### END USED TO BE INTERSECT_AND_PROJECT
         # specialize it from a Polytope to a GatePolytope
         new_polytope = GatePolytope(
             operations=next_polytope.operations,

@@ -5,16 +5,20 @@ Routines for calculating the Haar volume of polytopes expressed in positive
 canonical coordinates.
 """
 
+from fractions import Fraction
+from math import sqrt
+
 import numpy as np
 
 from .coordinates import monodromy_to_positive_canonical_polytope
 from .examples import empty_polytope
 from .polynomials import Polynomial, TrigPolynomial
-from .polytopes import alternating_sum
+from .polytopes import alternating_sum, make_convex_polytope
+from .utilities import epsilon, fractionify
 
 
 # duck typing means poor dispatching...
-def _haar_volume_tetrahedron(tetrahedron):
+def _haar_volume_tetrahedron(tetrahedron, integrand=None):
     """
     Integrates the PU(4) Haar form, expressed in positive canonical coordinates,
     over a 3D tetrahedron.
@@ -22,7 +26,11 @@ def _haar_volume_tetrahedron(tetrahedron):
     See Watts, O'Connor, and Vala's _Metric Structure of the Space of Two-Qubit
     Gates, Perfect Entanglers and Quantum Control_, Equation (27), which we've
     rewritten one step further to remove all products.
+
+    Takes an optional `integrand`, a polynomial expressed in (c1, c2, c3), to
+    integrate against the Haar measure.
     """
+
     tetrahedron = list([list(x) for x in tetrahedron])
 
     if len(tetrahedron) != 4 or any([len(x) != 3 for x in tetrahedron]):
@@ -40,27 +48,43 @@ def _haar_volume_tetrahedron(tetrahedron):
     c2 = Polynomial.from_linear_list([y0, y1 - y0, y2 - y0, y3 - y0])
     c3 = Polynomial.from_linear_list([z0, z1 - z0, z2 - z0, z3 - z0])
 
+    # transform integrand into tetrahedral coordinates
+    if integrand is None:
+        transformed_integrand = Polynomial.from_linear_list([1])
+    else:
+        transformed_integrand = Polynomial()
+        for power_tuple, coefficient in integrand.coefficient_table.items():
+            summand = Polynomial.from_linear_list([1])
+            summand = summand * coefficient
+            for _ in [] if len(power_tuple) < 1 else range(power_tuple[0]):
+                summand = summand * c1
+            for _ in [] if len(power_tuple) < 2 else range(power_tuple[1]):
+                summand = summand * c2
+            for _ in [] if len(power_tuple) < 3 else range(power_tuple[2]):
+                summand = summand * c3
+            transformed_integrand = transformed_integrand + summand
+
     haar_form = []
     for left, right in [(c1, c2), (c2, c3), (c3, c1)]:
         haar_form += [
             TrigPolynomial(
                 trig_fn="cos",
-                coefficients=Polynomial.from_linear_list([1]),
+                coefficients=transformed_integrand,
                 arguments=(left * 2 - right * 4)
             ),
             TrigPolynomial(
                 trig_fn="cos",
-                coefficients=Polynomial.from_linear_list([1]),
+                coefficients=transformed_integrand,
                 arguments=(left * 2 + right * 4)
             ),
             TrigPolynomial(
                 trig_fn="cos",
-                coefficients=Polynomial.from_linear_list([-1]),
+                coefficients=transformed_integrand * -1,
                 arguments=(left * 4 - right * 2)
             ),
             TrigPolynomial(
                 trig_fn="cos",
-                coefficients=Polynomial.from_linear_list([-1]),
+                coefficients=transformed_integrand * -1,
                 arguments=(left * 4 + right * 2)
             ),
         ]
@@ -79,25 +103,95 @@ def _haar_volume_tetrahedron(tetrahedron):
            sum(term.to_number() for term in haar_form)
 
 
-def _haar_volume_convex_polytope(convex_polytope):
+def _haar_volume_convex_polytope(convex_polytope, integrand=None):
     """
     Integrates the PU(4) Haar form, expressed in positive canonical coordinates,
     over a 3D convex polytope.
+
+    Takes an optional `integrand`, a polynomial expressed in (c1, c2, c3), to
+    integrate against the Haar measure.
     """
     vertices = [[2 * np.pi * x for x in vertex]
                 for vertex in convex_polytope.vertices]
     mapped_tetrahedra = [(vertices[index] for index in tetrahedron)
                          for tetrahedron in convex_polytope.triangulation]
-    return sum([_haar_volume_tetrahedron(tetrahedron)
+    return sum([_haar_volume_tetrahedron(tetrahedron, integrand=integrand)
                 for tetrahedron in mapped_tetrahedra])
 
 
-def haar_volume(polytope):
+def haar_volume(polytope, integrand=None):
     """
     Integrates the PU(4) Haar form, expressed in positive canonical coordinates,
     over a 3D polytope.
+
+    Takes an optional `integrand`, a polynomial expressed in (c1, c2, c3), to
+    integrate against the Haar measure.
     """
-    return alternating_sum(polytope, _haar_volume_convex_polytope)
+    def volume_fn(convex_polytope):
+        return _haar_volume_convex_polytope(convex_polytope, integrand=integrand)
+
+    return alternating_sum(polytope, volume_fn)
+
+
+def distance_polynomial_integrals(coverage_set, max_degree=0, chatty=False):
+    """
+    Computes the integrals of dist^n dHaar over the "fresh" part of each member
+    of `coverage_set` for exponent n in the range [0, max_degree].  Returns a
+    dictionary mapping operations tuples from the `coverage_set` to a list of
+    calculated integration values.
+    """
+    # TODO: check these constant terms, depends on what "normalized coordinates" are
+    positive_halfspace = make_convex_polytope(fractionify([[1/4, -1, 0, 0]]))
+    negative_halfspace = make_convex_polytope(fractionify([[-1/4, 1, 0, 0]]))
+
+    positive_polytopes_so_far = empty_polytope
+    negative_polytopes_so_far = empty_polytope
+    polynomial_averages = dict()
+
+    if chatty:
+        for degree in range(1 + max_degree):
+            print(f" deg {degree}\t | ", end="")
+        print("Sequence name")
+
+    for polytope in coverage_set:
+        polytope = monodromy_to_positive_canonical_polytope(polytope)
+
+        positive_polytope = polytope.intersect(positive_halfspace).reduce()
+        negative_polytope = polytope.intersect(negative_halfspace).reduce()
+        positive_complementary_polytope = positive_polytopes_so_far \
+            .intersect(positive_polytope).reduce()
+        negative_complementary_polytope = negative_polytopes_so_far \
+            .intersect(negative_polytope).reduce()
+
+        # could reuse these, but probably as cheap to recreate them
+        positive_polynomial_form = Polynomial.from_linear_list([1])
+        negative_polynomial_form = Polynomial.from_linear_list([1])
+        polynomial_averages[tuple(polytope.operations)] = []
+        for degree in range(1 + max_degree):
+            integral = (
+                haar_volume(positive_polytope, positive_polynomial_form)
+                + haar_volume(negative_polytope, negative_polynomial_form)
+                - haar_volume(positive_complementary_polytope, positive_polynomial_form)
+                - haar_volume(negative_complementary_polytope, negative_polynomial_form)
+            )
+            polynomial_averages[tuple(polytope.operations)].append(integral)
+
+            if chatty:
+                print(f"{integral:5.5f}\t | ", end="")
+
+            # update the polynomial forms
+            positive_polynomial_form = positive_polynomial_form * \
+                Polynomial.from_linear_list([0, 1, 1, 1])
+            negative_polynomial_form = negative_polynomial_form * \
+                Polynomial.from_linear_list([np.pi, -1, 1, 1])
+
+        if chatty:
+            print(f"{'.'.join(polytope.operations)}")
+
+        positive_polytopes_so_far = positive_polytopes_so_far.union(positive_polytope).reduce()
+        negative_polytopes_so_far = negative_polytopes_so_far.union(negative_polytope).reduce()
+
+    return polynomial_averages
 
 
 def expected_cost(coverage_set, chatty=False):
@@ -105,29 +199,69 @@ def expected_cost(coverage_set, chatty=False):
     Calculates the expected cost, using the Haar measure, of a `coverage_set`
     expressed in monodromy coordinates.
     """
-    expected_cost = 0
-    polytope_so_far = empty_polytope
 
-    if chatty:
-        print("   Total vol.\t |   Fresh vol.\t | Sequence name")
+    integrals = distance_polynomial_integrals(coverage_set, chatty=chatty)
+    expected_cost = 0
 
     for polytope in coverage_set:
-        polytope = monodromy_to_positive_canonical_polytope(polytope)
-        positive_volume = haar_volume(polytope)
-        negative_volume = haar_volume(
-            polytope_so_far.intersect(polytope).reduce()
-        )
-        if chatty:
-            print(
-                f"{float(100 * positive_volume):9.2f}%"
-                f"\t | {float(100 * (positive_volume - negative_volume)):9.2f}%"
-                f"\t | {'.'.join(polytope.operations)}")
-        expected_cost += polytope.cost * (positive_volume - negative_volume)
-        polytope_so_far = polytope_so_far.union(polytope).reduce()
+        expected_cost += polytope.cost * integrals[tuple(polytope.operations)][0]
 
     return expected_cost
 
 
+def cost_statistics(coverage_set, offset, scale_factor, chatty=False):
+    """
+    Calculates a variety of summary statistics involving the expected cost, as
+    in the Haar measure, of a `coverage_set` expressed in monodromy coordinates.
+
+    Assumes an affine-linear cost model for operation infidelity in interaction
+    strength (cf. `optimize.py`):
+
+        cost = (# interactions) * offset + (interaction total) * scale_factor .
+    """
+
+    polynomial_integrals = distance_polynomial_integrals(
+        coverage_set, max_degree=2, chatty=chatty,
+    )
+
+    average_cost = 0
+    square_sigma_cost = 0
+    square_sigma_overshot = 0
+
+    for polytope in coverage_set:
+        # these are the integrals of dist^0, dist^1, and dist^2 over the
+        # subregion of p which is cost-minimal.
+        d0, d1, d2 = polynomial_integrals[tuple(polytope.operations)]
+
+        # if this region is negligible, neglect it.
+        if abs(d0) < epsilon:
+            continue
+
+        average_cost += d0 * polytope.cost
+
+        square_sigma_cost += d0 * polytope.cost ** 2
+
+        # sigma_overshot**2 = int (overshot - average overshot)**2 dHaar. expand
+        # overshot as a difference, then expand that in powers of the distance
+        # functional.
+        square_sigma_overshot += d0 * (polytope.cost - 3 * offset) ** 2
+        square_sigma_overshot += d1 * (-2 * (polytope.cost - 3 * offset) * scale_factor * 2 / np.pi)
+        square_sigma_overshot += d2 * (scale_factor * 2 / np.pi) ** 2
+
+    # postprocessing
+    average_overshot = average_cost - (3 * offset + 3 / 2 * scale_factor)
+
+    return {
+        "average_cost": average_cost,
+        "average_overshot": average_overshot,
+        "sigma_cost": sqrt(square_sigma_cost - average_cost ** 2),
+        "sigma_overshot": sqrt(square_sigma_overshot - average_overshot ** 2),
+    }
+
+
+# Here is a `sympy` version that I wish I could use instead of all of
+# `polynomials.py`.
+#
 # def _haar_volume_tetrahedron(tetrahedron):
 #     """
 #     Integrates the PU(4) Haar form over a 3D tetrahedron.

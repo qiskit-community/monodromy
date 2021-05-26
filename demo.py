@@ -1,4 +1,5 @@
 from monodromy.circuits import *
+from monodromy.coordinates import alcove_to_positive_canonical_coordinate
 from monodromy.coverage import *
 from monodromy.examples import *
 from monodromy.haar import expected_cost
@@ -36,6 +37,15 @@ print(monodromy.render.polytopes_to_mathematica(coverage_set))
 alcove_coordinate = [Fraction(3, 8), Fraction(-1, 8), Fraction(-1, 8)]
 point_polytope = exactly(*alcove_coordinate)
 decomposition = decomposition_hops(coverage_set, operations, point_polytope)
+for input_alcove_coord, operation, output_alcove_coord in decomposition:
+    line = "("
+    line += " π/4, ".join([f"{float(x / (np.pi/4)):+.3f}"
+                           for x in alcove_to_positive_canonical_coordinate(*input_alcove_coord)])
+    line += f" π/4) --{operation:-<7}-> ("
+    line += " π/4, ".join([f"{float(x / (np.pi/4)):+.3f}"
+                           for x in alcove_to_positive_canonical_coordinate(*output_alcove_coord)])
+    line += " π/4)"
+    print(line)
 qc = xx_circuit_from_decomposition(
     decomposition, operations
 )

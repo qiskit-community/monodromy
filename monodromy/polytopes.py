@@ -11,7 +11,7 @@ from typing import List, Optional
 
 import monodromy.backend
 from monodromy.utilities import bitcount, bitscatter, bit_iteration, \
-    clear_memoization, memoized_property
+    clear_memoization, epsilon, memoized_property
 
 
 @dataclass(order=True)
@@ -118,18 +118,23 @@ class ConvexPolytope:
         )
 
     def has_element(self, point) -> bool:
-        return (all([0 <= inequality[0] + sum(x * y for x, y in
-                                              zip(point, inequality[1:]))
+        return (all([-epsilon <= inequality[0] +
+                                 sum(x * y for x, y in
+                                     zip(point, inequality[1:]))
                      for inequality in self.inequalities]) and
-                all([0 == equality[0] + sum(x * y for x, y in
-                                            zip(point, equality[1:]))
+                all([abs(equality[0] + sum(x * y for x, y in
+                                           zip(point, equality[1:])))
+                     <= epsilon
                      for equality in self.equalities]))
 
     def contains(self, other) -> bool:
         """
         Returns True when this convex body is contained in the right-hand one.
         """
-        # NOTE: alternatively, you could check volumes, as below
+        # NOTE: Alternatively, you could check volumes, as below.  Also
+        #       alternatively, you could use .reduce() and check that the facet
+        #       definitions are the same (up to rescaling?).  I think this is
+        #       the most efficient version, since it doesn't enumerate vertices?
         cap_vertices = other.intersect(self).vertices
         return all([v in cap_vertices for v in other.vertices])
 

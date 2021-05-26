@@ -128,7 +128,7 @@ def alcove_to_positive_canonical_coordinate(x, y, z):
 def monodromy_to_positive_canonical_polytope(monodromy_polytope):
     """
     Converts a Polytope in monodromy coordinates to the corresponding Polytope
-    in (positive) canonical coordinates.
+    in (rescaled) (positive) canonical coordinates.
     """
     canonical_convex_subpolytopes = []
     for convex_subpolytope in monodromy_polytope.convex_subpolytopes:

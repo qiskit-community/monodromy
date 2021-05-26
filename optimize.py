@@ -152,6 +152,18 @@ def iterate_over_total(
     partial_fill = partial_fill if partial_fill is not None else []
     if bucket_count == len(partial_fill):
         return fn(partial_fill)
+
+    if bucket_count == 1 + len(partial_fill):
+        if total - sum(partial_fill) >= 2:
+            return iterate_over_total(
+                total,
+                bucket_count,
+                fn,
+                [*partial_fill, total - sum(partial_fill)]
+            )
+        else:
+            return
+
     for denominator in range(1, total - sum(partial_fill)):
         iterate_over_total(
             total,

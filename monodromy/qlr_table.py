@@ -130,24 +130,3 @@ This houses the monodromy polytope, the main static input of the whole calc'n.
 This polytope does _not_ also contain the alcove constraints.
 """
 qlr_polytope = make_convex_polytope(generate_qlr_inequalities())
-
-
-"""
-Inequalities defining the fundamental Weyl alcove used in monodromy polytope
-calculations for SU(4).
-"""
-alcove = make_convex_polytope(fractionify([
-    [0,  1, -1,  0, ],  # a1 - a2 >= 0
-    [0,  0,  1, -1, ],  # a2 - a3 >= 0
-    [0,  1,  1,  2, ],  # a3 - a4 >= 0
-    [1, -2, -1, -1, ],  # a4 - (a1 - 1) >= 0
-]))
-
-"""
-Inequalities defining the fundamental Weyl alcove used in monodromy polytope
-calculations for PU(4).
-"""
-alcove_c2 = make_convex_polytope(fractionify([
-    *alcove.convex_subpolytopes[0].inequalities,
-    [1, -2, 0, 2, ],  # a3 + 1/2 - a1 >  0 , the C2 inequality
-]))

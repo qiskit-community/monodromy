@@ -8,10 +8,11 @@ from fractions import Fraction
 import heapq
 from typing import Dict, List, Optional
 
+from .coordinates import alcove, alcove_c2
 from .elimination import cylinderize, project
 from .examples import everything_polytope, identity_polytope
 from .polytopes import ConvexPolytope, Polytope, trim_polytope_set
-from .qlr_table import alcove, alcove_c2, qlr_polytope
+from .qlr_table import qlr_polytope
 
 
 @dataclass

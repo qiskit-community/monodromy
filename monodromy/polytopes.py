@@ -528,17 +528,10 @@ def make_convex_polytope(
 
 
 # PEDAGOGICAL VALUE ONLY
-def naive_alternating_sum(polytope, volume_fn):
+def naive_alternating_sum(polytope):
     """
-    Efficiently computes the inclusion-exclusion alternating sum for the volume
-    of a `Polytope`, as computed by `volume_fn` on its convex intersections.
-
-    `volume_fn` is required to be:
-
-        + real-valued,
-        + strictly monotonic: if A ≤ B, then vol(A) ≤ vol(B),
-                              with equality only if A = B,
-        + weakly additive: vol(A u B) ≤ vol(A) + vol(B).
+    Inefficiently computes the Euclidean volume of a `Polytope` using the
+    inclusion-exclusion alternating.
     """
     total_volume = 0
 
@@ -551,7 +544,7 @@ def naive_alternating_sum(polytope, volume_fn):
                 for index, convex_subpolytope in enumerate(polytope.convex_subpolytopes):
                     if 0 != (bitstring & (1 << index)):
                         intersection = intersection.intersect(convex_subpolytope)
-                volumes[bitstring] = volume_fn(intersection)
+                volumes[bitstring] = intersection.volume
 
             if 1 == d % 2:
                 total_volume = total_volume - volumes[bitstring]

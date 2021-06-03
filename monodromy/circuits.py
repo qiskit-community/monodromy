@@ -25,6 +25,17 @@ from .coverage import intersect_and_project, GatePolytope
 from .decompose import decompose_xxyy_into_xxyy_xx
 from .examples import exactly, fractionify, canonical_matrix
 from .polytopes import ConvexPolytope, Polytope
+from .utilities import epsilon
+
+
+class NoBacksolution(Exception):
+    """
+    Signaled when the circuit backsolver can't find a suitable preimage point.
+
+    Conjectured to be probabilistically meaningless: should be fine to re-run
+    the call after catching this error.
+    """
+    pass
 
 
 reflection_options = {
@@ -362,7 +373,7 @@ def xx_circuit_from_decomposition(
                 break
 
         if permute_source_for_overlap is None:
-            raise ValueError("Failed to find suitable Weyl reflections.")
+            raise NoBacksolution()
 
         # target^p_t_f_o = rs * (source^s_reflection * s_shift)^p_s_f_o * uv * operation * xy
         # start with source conjugated by source_reflection, shifted by source_shift, conjugated by p_s_f_o

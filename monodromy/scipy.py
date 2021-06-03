@@ -16,6 +16,7 @@ import numpy as np
 import scipy
 from scipy.optimize import linprog
 
+from .circuits import NoBacksolution
 from .coverage import GatePolytope, prereduce_operation_polytopes
 from .elimination import cylinderize
 from .examples import exactly, fractionify
@@ -201,7 +202,7 @@ def scipy_decomposition_hops(
                 backsolution_polytope = polytope
                 break
         if backsolution_polytope is None:
-            raise ValueError("Unable to find precalculated backsolution polytope.")
+            raise NoBacksolution()
 
         # impose the target constraints, which sit on "b"
         # (really on "c", but "b" has already been projected off)
@@ -217,16 +218,16 @@ def scipy_decomposition_hops(
             if solution.success:
                 break
 
-        if solution is not None and solution.success:
-            # a/k/a decomposition.push
-            decomposition.insert(
-                0,
-                (solution.x[:3], working_operations[-1], solution.x[-3:])
-            )
-            # NOTE: using `exactly` here causes an infinite loop.
-            target_polytope = nearly(*solution.x[:3])
-            working_operations = working_operations[:-1]
-        else:
-            raise ValueError("Empty backsolution polytope.")
+        if solution is None or not solution.success:
+            raise NoBacksolution()
+
+        # a/k/a decomposition.push
+        decomposition.insert(
+            0,
+            (solution.x[:3], working_operations[-1], solution.x[-3:])
+        )
+        # NOTE: using `exactly` here causes an infinite loop.
+        target_polytope = nearly(*solution.x[:3])
+        working_operations = working_operations[:-1]
 
     return decomposition

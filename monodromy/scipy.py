@@ -54,21 +54,37 @@ def calculate_scipy_coverage_set(coverage_set, operations, chatty=False):
         operations=operations,
         target_coordinate="a",
         background_polytope=Polytope(convex_subpolytopes=[
-            # fix CAN(a, *, *)
+            # equate first source and first target coordinates
             ConvexPolytope(inequalities=fractionify([
                 [0,  1,  1, 0, 0, 0, 0, -1, -1, 0],
                 [0, -1, -1, 0, 0, 0, 0,  1,  1, 0],
             ])),
-            # fix CAN(*, b, *)
+            # equate first source and second target coordinates
+            ConvexPolytope(inequalities=fractionify([
+                [0,  1,  1, 0, 0, 0, 0, -1, 0, -1],
+                [0, -1, -1, 0, 0, 0, 0,  1, 0,  1],
+            ])),
+            # equate first source and third target coordinates
+            ConvexPolytope(inequalities=fractionify([
+                [0,  1,  1, 0, 0, 0, 0, 0, -1, -1],
+                [0, -1, -1, 0, 0, 0, 0, 0,  1,  1],
+            ])),
+            # equate second source and second target coordinates
             ConvexPolytope(inequalities=fractionify([
                 [0,  1, 0,  1, 0, 0, 0, -1, 0, -1],
                 [0, -1, 0, -1, 0, 0, 0,  1, 0,  1],
             ])),
-            # fix CAN(*, *, c)
+            # equate second source and third target coordinates
+            ConvexPolytope(inequalities=fractionify([
+                [0,  1, 0,  1, 0, 0, 0, 0, -1, -1],
+                [0, -1, 0, -1, 0, 0, 0, 0,  1,  1],
+            ])),
+            # equate third source and third target coordinates
             ConvexPolytope(inequalities=fractionify([
                 [0, 0,  1,  1, 0, 0, 0, 0, -1, -1],
                 [0, 0, -1, -1, 0, 0, 0, 0,  1,  1],
             ]))]),
+        chatty=chatty,
     )
 
     scipy_coverage_set = []

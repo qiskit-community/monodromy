@@ -144,6 +144,7 @@ def prereduce_operation_polytopes(
         operations: List[GatePolytope],
         target_coordinate: str = "c",
         background_polytope: Optional[Polytope] = None,
+        chatty: bool = False,
 ) -> Dict[str, GatePolytope]:
     """
     Specializes the "b"-coordinates of the monodromy polytope to a particular
@@ -158,6 +159,8 @@ def prereduce_operation_polytopes(
     prereduced_operation_polytopes = {}
 
     for operation in operations:
+        if chatty:
+            print(f"Prereducing QLR relations for {'.'.join(operation.operations)}")
         p = background_polytope if background_polytope is not None \
             else everything_polytope
         p = p.intersect(qlr_polytope)

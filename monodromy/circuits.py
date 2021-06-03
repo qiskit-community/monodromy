@@ -10,13 +10,14 @@ NOTE: This is _not_ known to be an exactly solvable problem in general.  The
 """
 
 from fractions import Fraction
+from functools import reduce
 import math
 import numpy as np
 from random import randint, sample  # TODO: THE USE OF `sample` IS A STOPGAP!!!
 from typing import List
 
 import qiskit
-from qiskit.circuit.library import RXGate, RYGate, RZGate
+from qiskit.circuit.library import RXGate, RYGate, RZGate, HGate
 import qiskit.quantum_info
 
 from .coordinates import alcove_to_positive_canonical_coordinate,\
@@ -231,9 +232,10 @@ def decomposition_hops(
 
     # if this polytope corresponds to the empty operation, we're done.
     while 0 != len(working_polytope.operations):
-        source_vertex, operation, target_vertex, working_polytope = decomposition_hop(
-            coverage_set, operations, working_polytope, target_polytope
-        )
+        source_vertex, operation, target_vertex, working_polytope = \
+            decomposition_hop(
+                coverage_set, operations, working_polytope, target_polytope
+            )
 
         # a/k/a decomposition.push
         decomposition.insert(0, (source_vertex, operation, target_vertex))
@@ -285,42 +287,69 @@ def xx_circuit_from_decomposition(
 
     Returns a QISKit circuit modeling the decomposed interaction.
     """
+    # TODO: is this proper form?
+    q = qiskit.QuantumRegister(2)
+    qc = qiskit.QuantumCircuit(q)
+    global_phase = 1 + 0j
+
     canonical_coordinate_table = {
         operation.operations[0]: alcove_to_positive_canonical_coordinate(
-            *operation.convex_subpolytopes[0].vertices[0])
+            *operation.convex_subpolytopes[0].vertices[0]
+        )
         for operation in operations
     }
 
     # make sure that all the operations are of XX-interaction type
-    assert all([abs(c[1]) < 0.01 and abs(c[2]) < 0.01
+    assert all([abs(c[1]) < epsilon and abs(c[2]) < epsilon
                 for c in canonical_coordinate_table.values()])
 
-    canonical_gate_table = {
-        k: qiskit.extensions.UnitaryGate(
-            canonical_matrix(v[0]),
-            label=f"XX({k})"
-        )
-        for k, v in canonical_coordinate_table.items()
-    }
-
-    # TODO: is this proper form?
-    q = qiskit.QuantumRegister(2)
-    qc = qiskit.QuantumCircuit(q)
+    canonical_gate_table = {}
+    for operation in operations:
+        frac = operation.convex_subpolytopes[0].vertices[0][0]
+        cx_circuit = qiskit.QuantumCircuit(q)
+        cx_circuit.h(q[0])
+        cx_circuit.append(qiskit.extensions.UnitaryGate(
+            # sandwich with Hs on one coordinate
+            reduce(np.dot, [
+                np.kron(np.eye(2), HGate().to_matrix()),
+                canonical_matrix(frac * np.pi),
+                np.kron(np.eye(2), HGate().to_matrix()),
+            ]),
+            label=f"ZX^({4 * frac})"
+        ), q)
+        cx_circuit.h(q[0])
+        canonical_gate_table[operation.operations[0]] = cx_circuit
 
     # empty decompositions are easy!
     if 0 == len(decomposition):
         return qc
 
-    # the first canonical gate is easy!
-    qc.append(canonical_gate_table[decomposition[0][1]], q)
+    # the first canonical gate is pretty easy!
+    if decomposition[0][2][0] <= 1/4:
+        qc.compose(
+            canonical_gate_table[decomposition[0][1]],
+            inplace=True
+        )
+    else:
+        _, source_reflection, reflection_phase_shift = \
+            apply_reflection("reflect XX, YY", [0, 0, 0], q)
+        _, source_shift, shift_phase_shift = \
+            apply_shift("X shift", [0, 0, 0], q)
 
-    global_phase = 1 + 0j
+        qc += source_reflection
+        qc.compose(canonical_gate_table[decomposition[0][1]], inplace=True)
+        qc += source_reflection.inverse()
+        qc += source_shift
+
+        global_phase *= shift_phase_shift * reflection_phase_shift
 
     # from here, we have to work.
     for decomposition_depth, (source_alcove_coord, operation, target_alcove_coord) \
             in enumerate(decomposition[1:]):
-        source_canonical_coord = alcove_to_positive_canonical_coordinate(*source_alcove_coord)
-        target_canonical_coord = alcove_to_positive_canonical_coordinate(*target_alcove_coord)
+        source_canonical_coord, target_canonical_coord = [
+            alcove_to_positive_canonical_coordinate(*x)
+            for x in [source_alcove_coord, target_alcove_coord]
+        ]
 
         permute_source_for_overlap, permute_target_for_overlap = None, None
 
@@ -392,7 +421,7 @@ def xx_circuit_from_decomposition(
         output_circuit = qiskit.QuantumCircuit(q)
         output_circuit.rz(2 * x, q[0])
         output_circuit.rz(2 * y, q[1])
-        output_circuit.append(canonical_gate_table[operation], q)
+        output_circuit.compose(canonical_gate_table[operation], inplace=True)
         output_circuit.rz(2 * u, q[0])
         output_circuit.rz(2 * v, q[1])
         output_circuit.compose(qc, inplace=True)

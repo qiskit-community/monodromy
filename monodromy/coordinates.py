@@ -160,7 +160,7 @@ def alcove_to_positive_canonical_coordinate(x, y, z):
     )
 
 
-def canonical_to_alcove_coordinate(x, y, z):
+def positive_canonical_to_monodromy_coordinate(x, y, z):
     """
     Converts a normalized positive alcove coordinate to a monodromy alcove
     coordinate.

@@ -37,7 +37,7 @@ def nearly(ax, ay, az, wiggle=1e-10):
     ])])
 
 
-def calculate_scipy_coverage_set(coverage_set, operations):
+def calculate_scipy_coverage_set(coverage_set, operations, chatty=False):
     """
     Precalculates a set of backsolution polytopes associated to `covering_set`
     and `operations`.
@@ -73,9 +73,12 @@ def calculate_scipy_coverage_set(coverage_set, operations):
 
     scipy_coverage_set = []
 
+    print("Working on scipy precalculation.")
     for operation_polytope in coverage_set:
         if 0 == len(operation_polytope.operations):
             continue
+
+        print(f"Working on {'.'.join(operation_polytope.operations)}...")
 
         ancestor_polytope = next(
             (polytope for polytope in coverage_set

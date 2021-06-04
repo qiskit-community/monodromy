@@ -34,7 +34,7 @@ print("==== Render these in Mathematica: =====")
 print(monodromy.render.polytopes_to_mathematica(coverage_set))
 
 # use coverage_set to perform a gate decomposition
-alcove_coordinate = [Fraction(3, 8), Fraction(-1, 8), Fraction(-1, 8)]
+alcove_coordinate = [Fraction(3, 8), Fraction(3, 8), Fraction(-1, 8)]
 point_polytope = exactly(*alcove_coordinate)
 decomposition = decomposition_hops(coverage_set, operations, point_polytope)
 for input_alcove_coord, operation, output_alcove_coord in decomposition:

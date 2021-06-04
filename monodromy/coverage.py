@@ -10,17 +10,24 @@ from typing import Dict, List, Optional
 from .coordinates import alcove, alcove_c2
 from .elimination import cylinderize, project
 from .examples import everything_polytope, identity_polytope
-from .polytopes import ConvexPolytope, Polytope, trim_polytope_set
+from .polytopes import ConvexPolytope, Polytope, PolytopeData, trim_polytope_set
 from .qlr_table import qlr_polytope
 
 
 @dataclass
-class CircuitPolytope(Polytope):
+class CircuitPolytopeData(PolytopeData):
     """
     A polytope describing the alcove coverage of a particular circuit type.
     """
     cost: float
     operations: List[str]
+
+
+@dataclass
+class CircuitPolytope(Polytope, CircuitPolytopeData):
+    """
+    A polytope describing the alcove coverage of a particular circuit type.
+    """
 
     def __gt__(self, other):
         return (self.cost > other.cost) or \

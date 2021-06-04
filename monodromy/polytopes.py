@@ -47,16 +47,62 @@ class PolytopeVolume:
 
 
 @dataclass
-class ConvexPolytope:
+class ConvexPolytopeData:
     """
-    Houses a single convex polytopes, specified by a family of `inequalities`,
-    each entry of which corresponds to the inequality
+    The raw data underlying a ConvexPolytope.  Describes a single convex
+    polytope, specified by families of `inequalities` and `equalities`, each
+    entry of which respectively corresponds to
 
         inequalities[j][0] + sum_i inequalities[j][i] * xi >= 0
+
+    and
+
+        equalities[j][0] + sum_i equalities[j][i] * xi == 0.
     """
 
     inequalities: List[List[int]]
     equalities: List[List[int]] = field(default_factory=list)
+
+    @classmethod
+    def inflate(cls, data):
+        """
+        Converts the `data` produced by `dataclasses.asdict` to a live object.
+        """
+
+        return cls(**data)
+
+
+@dataclass
+class PolytopeData:
+    """
+    The raw data of a union of convex polytopes.
+    """
+
+    convex_subpolytopes: List[ConvexPolytopeData]
+
+    @classmethod
+    def inflate(cls, data):
+        """
+        Converts the `data` produced by `dataclasses.asdict` to a live object.
+        """
+
+        data = {
+            **data,
+            # overrides
+            "convex_subpolytopes": [
+                ConvexPolytopeData.inflate(x) if isinstance(x, dict) else x
+                for x in data["convex_subpolytopes"]
+            ]
+        }
+
+        return cls(**data)
+
+
+@dataclass
+class ConvexPolytope(ConvexPolytopeData):
+    """
+    Houses a single convex polytope, together with methods for manipulation.
+    """
 
     @memoized_property
     def volume(self) -> PolytopeVolume:
@@ -347,12 +393,28 @@ def alternating_sum(polytope, volume_fn):
 
 
 @dataclass
-class Polytope:
+class Polytope(PolytopeData):
     """
-    A union of convex polytopes.
+    A manipulable union of convex polytopes.
     """
 
     convex_subpolytopes: List[ConvexPolytope]
+
+    @classmethod
+    def inflate(cls, data):
+        """
+        Converts the `data` produced by `dataclasses.asdict` to a live object.
+        """
+
+        data = {
+            **data,
+            "convex_subpolytopes": [
+                ConvexPolytope.inflate(x) if isinstance(x, dict) else x
+                for x in data["convex_subpolytopes"]
+            ],
+        }
+
+        return super().inflate(data)
 
     @memoized_property
     def volume(self) -> PolytopeVolume:

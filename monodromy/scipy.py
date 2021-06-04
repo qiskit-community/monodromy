@@ -8,7 +8,7 @@ NOTE: The routines in this file can fail for numerical reasons, and so they are
 """
 
 from collections import Counter
-from random import sample, shuffle, uniform
+from random import shuffle, uniform
 from typing import List
 import warnings
 

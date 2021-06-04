@@ -114,14 +114,14 @@ reflection_options = {
 }
 
 shift_options = {
-    "no shift":    ([0, 0, 0],   1, []),  # we checked this phase
-    "Z shift":     ([0, 0, 1],  1j, [RZGate]),  # we checked this phase
-    "Y shift":     ([0, 1, 0], -1j, [RYGate]),  # we checked this phase, but only in a pair with reflect XX, ZZ
-    "Y,Z shift":   ([0, 1, 1],  -1, [RYGate, RZGate]),
-    "X shift":     ([1, 0, 0], -1j, [RXGate]),  # we checked this phase
+    "no shift":    ([0, 0, 0],   1, []),                # we checked this phase
+    "Z shift":     ([0, 0, 1],  1j, [RZGate]),          # we checked this phase
+    "Y shift":     ([0, 1, 0], -1j, [RYGate]),          # we checked this phase, but only in a pair with reflect XX, ZZ
+    "Y,Z shift":   ([0, 1, 1],  -1, [RYGate, RZGate]),  # unchecked
+    "X shift":     ([1, 0, 0], -1j, [RXGate]),          # we checked this phase
     "X,Z shift":   ([1, 0, 1],   1, [RXGate, RZGate]),  # we checked this phase
-    "X,Y shift":   ([1, 1, 0],  -1, [RXGate, RYGate]),
-    "X,Y,Z shift": ([1, 1, 1], -1j, [RXGate, RYGate, RZGate]),
+    "X,Y shift":   ([1, 1, 0],  -1, [RXGate, RYGate]),  # unchecked
+    "X,Y,Z shift": ([1, 1, 1], -1j, [RXGate, RYGate, RZGate]),  # unchecked
 }
 
 

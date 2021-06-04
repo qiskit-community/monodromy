@@ -16,7 +16,7 @@ from .qlr_table import qlr_polytope
 
 
 @dataclass
-class GatePolytope(Polytope):
+class CircuitPolytope(Polytope):
     """
     A polytope describing the alcove coverage of a particular circuit type.
     """
@@ -141,11 +141,11 @@ def intersect_and_project(
 
 
 def prereduce_operation_polytopes(
-        operations: List[GatePolytope],
+        operations: List[CircuitPolytope],
         target_coordinate: str = "c",
         background_polytope: Optional[Polytope] = None,
         chatty: bool = False,
-) -> Dict[str, GatePolytope]:
+) -> Dict[str, CircuitPolytope]:
     """
     Specializes the "b"-coordinates of the monodromy polytope to a particular
     operation, then projects them away.
@@ -181,9 +181,9 @@ def prereduce_operation_polytopes(
 
 
 def build_coverage_set(
-        operations: List[GatePolytope],
+        operations: List[CircuitPolytope],
         chatty: bool = False,
-) -> List[GatePolytope]:
+) -> List[CircuitPolytope]:
     """
     Given a set of `operations`, thought of as members of a native gate set,
     this emits a list of circuit shapes built as sequences of those operations
@@ -203,7 +203,7 @@ def build_coverage_set(
     )
 
     # a collection of polytopes explored so far, and their union
-    total_polytope = GatePolytope(
+    total_polytope = CircuitPolytope(
         convex_subpolytopes=identity_polytope.convex_subpolytopes,
         operations=[],
         cost=0.,
@@ -261,8 +261,8 @@ def build_coverage_set(
         new_polytope = new_polytope.reduce()
         for index in [3, 2, 1]:
             new_polytope = project(new_polytope, index).reduce()
-        # specialize it from a Polytope to a GatePolytope
-        new_polytope = GatePolytope(
+        # specialize it from a Polytope to a CircuitPolytope
+        new_polytope = CircuitPolytope(
             operations=next_polytope.operations,
             cost=next_polytope.cost,
             convex_subpolytopes=new_polytope.convex_subpolytopes
@@ -283,7 +283,7 @@ def build_coverage_set(
         if alcove_c2.volume > new_polytope.volume:
             # add this polytope + the continuations to the priority queue
             for operation in operations:
-                heapq.heappush(to_be_explored, GatePolytope(
+                heapq.heappush(to_be_explored, CircuitPolytope(
                     operations=next_polytope.operations + operation.operations,
                     cost=next_polytope.cost + operation.cost,
                     convex_subpolytopes=operation.convex_subpolytopes,

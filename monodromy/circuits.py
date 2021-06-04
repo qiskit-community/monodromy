@@ -22,7 +22,7 @@ import qiskit.quantum_info
 
 from .coordinates import alcove_to_positive_canonical_coordinate,\
     unitary_to_alcove_coordinate
-from .coverage import intersect_and_project, GatePolytope
+from .coverage import intersect_and_project, CircuitPolytope
 from .decompose import decompose_xxyy_into_xxyy_xx
 from .examples import exactly, canonical_matrix
 from .polytopes import ConvexPolytope, Polytope
@@ -125,8 +125,8 @@ def cheapest_container(coverage_set, point_polytope):
 
 
 def decomposition_hop(
-        coverage_set: List[GatePolytope],
-        operations: List[GatePolytope],
+        coverage_set: List[CircuitPolytope],
+        operations: List[CircuitPolytope],
         container: Polytope,
         target_polytope: Polytope
 ):
@@ -221,8 +221,8 @@ def decomposition_hop(
 
 
 def decomposition_hops(
-        coverage_set: List[GatePolytope],
-        operations: List[GatePolytope],
+        coverage_set: List[CircuitPolytope],
+        operations: List[CircuitPolytope],
         target_polytope: Polytope
 ):
     """
@@ -293,7 +293,7 @@ def canonical_rotation_circuit(first_index, second_index, q):
 
 def xx_circuit_from_decomposition(
         decomposition,
-        operations: List[GatePolytope]
+        operations: List[CircuitPolytope]
 ) -> qiskit.QuantumCircuit:
     """
     Extracts a circuit, with interactions drawn from `operations`, based on a

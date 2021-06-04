@@ -6,12 +6,12 @@ from monodromy.haar import expected_cost
 import monodromy.render
 
 operations = [
-    GatePolytope(
+    CircuitPolytope(
         convex_subpolytopes=thirdCX_polytope.convex_subpolytopes,
         cost=1/3,
         operations=["thirdCX"],
     ),
-    GatePolytope(
+    CircuitPolytope(
         convex_subpolytopes=sqrtCX_polytope.convex_subpolytopes,
         cost=1/2,
         operations=["sqrtCX"],

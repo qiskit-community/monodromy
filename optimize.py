@@ -46,7 +46,7 @@ def get_operations(*strengths):
     specified as a fraction of the "full strength" XX-type operation, CX.
     """
     return [
-        GatePolytope(
+        CircuitPolytope(
             convex_subpolytopes=exactly(
                 Fraction( 1, 4) * strength,
                 Fraction( 1, 4) * strength,

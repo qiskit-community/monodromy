@@ -8,10 +8,10 @@ In the future, it would be cool to use something self-contained like `fresnel`.
 
 from typing import List
 
-from monodromy.coverage import GatePolytope
+from monodromy.coverage import CircuitPolytope
 
 
-def polytopes_to_mathematica(necessary_polytopes: List[GatePolytope]):
+def polytopes_to_mathematica(necessary_polytopes: List[CircuitPolytope]):
     output = ""
     output += "polytopeData = {"
     for n, gate_polytope in enumerate(necessary_polytopes):

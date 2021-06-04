@@ -18,7 +18,7 @@ import scipy
 from scipy.optimize import linprog
 
 from .circuits import NoBacksolution
-from .coverage import GatePolytope, prereduce_operation_polytopes
+from .coverage import CircuitPolytope, prereduce_operation_polytopes
 from .elimination import cylinderize
 from .examples import exactly
 from .polytopes import ConvexPolytope, Polytope
@@ -118,7 +118,7 @@ def calculate_scipy_coverage_set(coverage_set, operations, chatty=False):
         )
         backsolution_polytope = backsolution_polytope.reduce()
 
-        scipy_coverage_set.append(GatePolytope(
+        scipy_coverage_set.append(CircuitPolytope(
             convex_subpolytopes=backsolution_polytope.convex_subpolytopes,
             cost=operation_polytope.cost,
             operations=operation_polytope.operations,
@@ -174,8 +174,8 @@ def scipy_get_random_vertex(
 
 
 def scipy_decomposition_hops(
-        coverage_set: List[GatePolytope],
-        scipy_coverage_set: List[GatePolytope],
+        coverage_set: List[CircuitPolytope],
+        scipy_coverage_set: List[CircuitPolytope],
         target_polytope: Polytope
 ):
     """
@@ -364,7 +364,7 @@ def calculate_unordered_scipy_coverage_set(
                 )) \
                 .reduce()
 
-            scipy_coverage_set.append(GatePolytope(
+            scipy_coverage_set.append(CircuitPolytope(
                 convex_subpolytopes=backsolution_polytope.convex_subpolytopes,
                 cost=descendant_polytope.cost,
                 operations=ancestor_polytope.operations + [operation],
@@ -374,8 +374,8 @@ def calculate_unordered_scipy_coverage_set(
 
 
 def scipy_unordered_decomposition_hops(
-        coverage_set: List[GatePolytope],
-        scipy_coverage_set: List[GatePolytope],
+        coverage_set: List[CircuitPolytope],
+        scipy_coverage_set: List[CircuitPolytope],
         target_polytope: Polytope
 ):
     """

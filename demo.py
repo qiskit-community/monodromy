@@ -5,7 +5,10 @@ from monodromy.examples import *
 from monodromy.haar import expected_cost
 import monodromy.render
 
-operations = get_zx_operations(Fraction(1), Fraction(1, 2), Fraction(1, 3))
+operations = get_zx_operations({
+    frac: default_zx_operation_cost(frac)
+    for frac in [Fraction(1), Fraction(1, 2), Fraction(1, 3)]
+})
 
 # build the set of covering polytopes
 print("==== Working to build a set of covering polytopes ====")

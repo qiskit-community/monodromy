@@ -15,7 +15,7 @@ from functools import reduce
 import math
 import numpy as np
 from random import randint, sample  # TODO: THE USE OF `sample` IS A STOPGAP!!!
-from typing import List
+from typing import Dict, List
 
 import qiskit
 from qiskit.circuit.library import RXGate, RYGate, RZGate, HGate
@@ -64,21 +64,30 @@ default_zx_names = {
 }
 
 
-def get_zx_operations(*strengths) -> List[OperationPolytope]:
+def default_zx_operation_cost(
+        strength: Fraction,
+        # note: Isaac reports this value in percent per degree
+        scale_factor: float = (64 * 90) / (10000 * 100),
+        # first component: 2Q invocation cost; second component: local cost
+        offset: float = 909 / (10000 * 100) + 1 / 1000,
+):
     """
-    Converts a list of fractional CX `strengths` to the corresponding list of
-    `OperationPolytope`s.  Uses a default experimental cost model.
+    A sample fidelity cost model, extracted from experiment, for ZX operations.
     """
-    # cost constants:
-    # Isaac reports this value in percent-per-degree; we want units per rev
-    scale_factor = 90 / 100 * 0.000640
-    # first factor: flat 2Q cost;  second factor: estimated neighboring 1Q cost
-    offset = 0.000909 + 0.001
+    return strength * scale_factor + offset
+
+
+def get_zx_operations(strengths: Dict[Fraction, float]) \
+        -> List[OperationPolytope]:
+    """
+    Converts a dictionary mapping fractional CX `strengths` to fidelities to the
+    corresponding list of `OperationPolytope`s.
+    """
 
     q = qiskit.QuantumRegister(2)
     operations = []
 
-    for strength in strengths:
+    for strength, fidelity in strengths.items():
         label = default_zx_names.get(strength, f"ZX^({strength})")
 
         cx_circuit = qiskit.QuantumCircuit(q)
@@ -96,7 +105,7 @@ def get_zx_operations(*strengths) -> List[OperationPolytope]:
 
         operations.append(OperationPolytope(
             operations=[label],
-            cost=strength * scale_factor + offset,
+            cost=fidelity,
             convex_subpolytopes=exactly(
                     strength / 4, strength / 4, -strength / 4,
                 ).convex_subpolytopes,
@@ -289,7 +298,7 @@ def decomposition_hop(
 
 def decomposition_hops(
         coverage_set: List[CircuitPolytope],
-        operations: List[CircuitPolytope],
+        operations: List[OperationPolytope],
         target_polytope: Polytope
 ):
     """

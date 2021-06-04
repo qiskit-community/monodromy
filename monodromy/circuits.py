@@ -1,5 +1,5 @@
 """
-monodromy/src/circuits.py
+monodromy/circuits.py
 
 Tools for designing circuits which implement a particular canonical gate.
 
@@ -9,6 +9,7 @@ NOTE: This is _not_ known to be an exactly solvable problem in general.  The
       techniques for specific native gates.
 """
 
+from dataclasses import dataclass
 from fractions import Fraction
 from functools import reduce
 import math
@@ -37,6 +38,72 @@ class NoBacksolution(Exception):
     the call after catching this error.
     """
     pass
+
+
+@dataclass
+class OperationPolytope(CircuitPolytope):
+    """
+    A polytope which describes a single gate, together with a precomputed
+    QISKit circuit expressing its canonical form in native operations.
+
+    For example, the native operation sqrtCX on a device would be encoded as an
+    OperationPolytope with the same canonical coordinates as 1/2 XX, and with a
+    `canonical_circuit` slot containing
+
+        H 1 ; sqrtCX ; H 1
+
+    which expresses 1/2 XX in terms of this native multiqubit interaction.
+    """
+    canonical_circuit: qiskit.QuantumCircuit
+
+
+default_zx_names = {
+    Fraction(1, 1): "cx",
+    Fraction(1, 2): "sqrtCX",
+    Fraction(1, 3): "cbrtCX",
+}
+
+
+def get_zx_operations(*strengths) -> List[OperationPolytope]:
+    """
+    Converts a list of fractional CX `strengths` to the corresponding list of
+    `OperationPolytope`s.  Uses a default experimental cost model.
+    """
+    # cost constants:
+    # Isaac reports this value in percent-per-degree; we want units per rev
+    scale_factor = 90 / 100 * 0.000640
+    # first factor: flat 2Q cost;  second factor: estimated neighboring 1Q cost
+    offset = 0.000909 + 0.001
+
+    q = qiskit.QuantumRegister(2)
+    operations = []
+
+    for strength in strengths:
+        label = default_zx_names.get(strength, f"ZX^({strength})")
+
+        cx_circuit = qiskit.QuantumCircuit(q)
+        cx_circuit.h(q[0])
+        cx_circuit.append(qiskit.extensions.UnitaryGate(
+            # sandwich with Hs on one coordinate
+            reduce(np.dot, [
+                np.kron(np.eye(2), HGate().to_matrix()),
+                canonical_matrix(strength * np.pi/4),
+                np.kron(np.eye(2), HGate().to_matrix()),
+            ]),
+            label=label
+        ), q)
+        cx_circuit.h(q[0])
+
+        operations.append(OperationPolytope(
+            operations=[label],
+            cost=strength * scale_factor + offset,
+            convex_subpolytopes=exactly(
+                    strength / 4, strength / 4, -strength / 4,
+                ).convex_subpolytopes,
+            canonical_circuit=cx_circuit,
+        ))
+
+    return operations
 
 
 reflection_options = {
@@ -126,7 +193,7 @@ def cheapest_container(coverage_set, point_polytope):
 
 def decomposition_hop(
         coverage_set: List[CircuitPolytope],
-        operations: List[CircuitPolytope],
+        operations: List[OperationPolytope],
         container: Polytope,
         target_polytope: Polytope
 ):
@@ -293,7 +360,7 @@ def canonical_rotation_circuit(first_index, second_index, q):
 
 def xx_circuit_from_decomposition(
         decomposition,
-        operations: List[CircuitPolytope]
+        operations: List[OperationPolytope]
 ) -> qiskit.QuantumCircuit:
     """
     Extracts a circuit, with interactions drawn from `operations`, based on a
@@ -317,22 +384,10 @@ def xx_circuit_from_decomposition(
     assert all([abs(c[1]) < epsilon and abs(c[2]) < epsilon
                 for c in canonical_coordinate_table.values()])
 
-    canonical_gate_table = {}
-    for operation in operations:
-        frac = operation.convex_subpolytopes[0].vertices[0][0]
-        cx_circuit = qiskit.QuantumCircuit(q)
-        cx_circuit.h(q[0])
-        cx_circuit.append(qiskit.extensions.UnitaryGate(
-            # sandwich with Hs on one coordinate
-            reduce(np.dot, [
-                np.kron(np.eye(2), HGate().to_matrix()),
-                canonical_matrix(frac * np.pi),
-                np.kron(np.eye(2), HGate().to_matrix()),
-            ]),
-            label=f"ZX^({4 * frac})"
-        ), q)
-        cx_circuit.h(q[0])
-        canonical_gate_table[operation.operations[0]] = cx_circuit
+    canonical_gate_table = {
+        operation.operations[0]: operation.canonical_circuit
+        for operation in operations
+    }
 
     # empty decompositions are easy!
     if 0 == len(decomposition):

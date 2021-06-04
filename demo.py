@@ -5,18 +5,7 @@ from monodromy.examples import *
 from monodromy.haar import expected_cost
 import monodromy.render
 
-operations = [
-    CircuitPolytope(
-        convex_subpolytopes=thirdCX_polytope.convex_subpolytopes,
-        cost=1/3,
-        operations=["thirdCX"],
-    ),
-    CircuitPolytope(
-        convex_subpolytopes=sqrtCX_polytope.convex_subpolytopes,
-        cost=1/2,
-        operations=["sqrtCX"],
-    ),
-]
+operations = get_zx_operations(Fraction(1), Fraction(1, 2), Fraction(1, 3))
 
 # build the set of covering polytopes
 print("==== Working to build a set of covering polytopes ====")

@@ -2,7 +2,6 @@
 monodromy/coverage.py
 """
 
-from copy import copy
 from dataclasses import dataclass
 from fractions import Fraction
 import heapq

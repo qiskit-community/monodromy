@@ -4,10 +4,7 @@ monodromy/qlr_table.py
 Precomputed descriptions of the monodromy polytope for SU(4) and PU(4).
 """
 
-from fractions import Fraction
-
 from .polytopes import make_convex_polytope
-from .utilities import fractionify
 
 
 """
@@ -84,10 +81,10 @@ def ineq_from_qlr(r, k, a, b, c, d):
     #     - \sum_{i=1}^r \beta_{k+i-b_i}
     #     + \sum_{i=1}^r \delta_{k+i-c_i} \ge 0$$
 
-    new_row = [Fraction(d),
-               Fraction(0), Fraction(0), Fraction(0), Fraction(0),  # alpha's
-               Fraction(0), Fraction(0), Fraction(0), Fraction(0),  # beta's
-               Fraction(0), Fraction(0), Fraction(0), Fraction(0), ]  # gamma's
+    new_row = [d,
+               0, 0, 0, 0,  # alpha's
+               0, 0, 0, 0,  # beta's
+               0, 0, 0, 0, ]  # gamma's
     for i, ai in enumerate(a):
         index = k + (i + 1) - ai  # subscript in the Biswas inequality
         offset = 0  # last entry before alpha

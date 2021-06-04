@@ -5,12 +5,12 @@ A variety of "standard" polytopes and gates.
 """
 
 from fractions import Fraction
+from typing import List
 
 import numpy as np
 
 from .coordinates import alcove_c2
 from .polytopes import ConvexPolytope, make_convex_polytope, Polytope
-from .utilities import fractionify
 
 
 def exactly(*coordinates) -> Polytope:
@@ -19,9 +19,9 @@ def exactly(*coordinates) -> Polytope:
     """
     table = []
     for index, coordinate in enumerate(coordinates):
-        row = [Fraction(0)] * (1 + len(coordinates))
-        row[0] = Fraction(coordinate)
-        row[1 + index] = Fraction(-1)
+        row = [0] * (1 + len(coordinates))
+        row[0] = coordinate.numerator
+        row[1 + index] = -coordinate.denominator
         table.append(row)
     return make_convex_polytope([], equalities=table)
 
@@ -30,24 +30,24 @@ identity_polytope = exactly(        0,     0,      0)
 
 
 # some parametric gates of interest
-CPHASE_polytope = make_convex_polytope(fractionify([
+CPHASE_polytope = make_convex_polytope([
     [0,  1, -1,  0,],  # x1 == x2
     [0, -1,  1,  0,],
     [0,  0,  1,  1,],   # x2 == -x3
     [0,  0, -1, -1,],
     *alcove_c2.convex_subpolytopes[0].inequalities,
-]))
-XY_polytope = make_convex_polytope(fractionify([
+])
+XY_polytope = make_convex_polytope([
     [0, 0,  1,  0],  # x2 == 0
     [0, 0, -1,  0],
     [0, 0,  0,  1],  # x3 == 0
     [0, 0,  0, -1],
     *alcove_c2.convex_subpolytopes[0].inequalities,
-]))
+])
 
 
 # some other gates of interest
-sqrtCX_polytope   = exactly(1 / 8, 1 / 8, -1 / 8)
+sqrtCX_polytope   = exactly(Fraction(1,  8), Fraction(1,  8), Fraction(-1,  8))
 thirdCX_polytope  = exactly(Fraction(1, 12), Fraction(1, 12), Fraction(-1, 12))
 
 

@@ -55,8 +55,8 @@ class ConvexPolytope:
         inequalities[j][0] + sum_i inequalities[j][i] * xi >= 0
     """
 
-    inequalities: List[List[Fraction]]
-    equalities: List[List[Fraction]] = field(default_factory=list)
+    inequalities: List[List[int]]
+    equalities: List[List[int]] = field(default_factory=list)
 
     @memoized_property
     def volume(self) -> PolytopeVolume:
@@ -79,7 +79,11 @@ class ConvexPolytope:
             return []
 
     @memoized_property
-    def triangulation(self) -> List[List]:
+    def triangulation(self) -> List[List[int]]:
+        """
+        Non-overlapping simplices which constitute this polytope, specified as
+        tuples of indices into .vertices .
+        """
         if 0 == len(self.vertices):
             return []
         return monodromy.backend.backend.triangulation(self)
@@ -515,8 +519,8 @@ def trim_polytope_set(
 
 
 def make_convex_polytope(
-        inequalities: List[List[Fraction]],
-        equalities: Optional[List[List[Fraction]]] = None,
+        inequalities: List[List[int]],
+        equalities: Optional[List[List[int]]] = None,
 ) -> Polytope:
     """Convenience method for forming a Polytope with one component."""
     equalities = equalities if equalities is not None else []

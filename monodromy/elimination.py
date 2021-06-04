@@ -4,7 +4,6 @@ monodromy/elimination.py
 Implements coordinate-wise inclusion and projections of inequality families.
 """
 
-from fractions import Fraction
 from typing import List
 
 from .polytopes import Polytope, ConvexPolytope
@@ -23,12 +22,12 @@ def cylinderize(
     for convex_subpolytope in polytope.convex_subpolytopes:
         cylinderized_subpolytope = ConvexPolytope(inequalities=[])
         for inequality in convex_subpolytope.inequalities:
-            new_row = [Fraction(0)] * parent_dimension
+            new_row = [0] * parent_dimension
             for source_value, target_index in zip(inequality, coordinate_map):
                 new_row[target_index] += source_value
             cylinderized_subpolytope.inequalities.append(new_row)
         for equality in convex_subpolytope.equalities:
-            new_row = [Fraction(0)] * parent_dimension
+            new_row = [0] * parent_dimension
             for source_value, target_index in zip(equality, coordinate_map):
                 new_row[target_index] += source_value
             cylinderized_subpolytope.equalities.append(new_row)
@@ -95,7 +94,7 @@ def project(polytope, index):
 
                 pos_scalar = positive_inequality[index]
                 neg_scalar = negative_inequality[index]
-                joined_inequality = [(p / pos_scalar) + (n / -neg_scalar)
+                joined_inequality = [p * -neg_scalar + n * pos_scalar
                                      for (p, n) in zip(positive_inequality, negative_inequality)]
                 joined_inequality = joined_inequality[:index] + joined_inequality[1+index:]
 

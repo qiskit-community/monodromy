@@ -9,7 +9,8 @@ More information about `lrs`: http://cgm.cs.mcgill.ca/~avis/C/lrs.html
 
 from copy import copy
 from fractions import Fraction
-import math  # gcd
+from functools import reduce
+import math  # for gcd
 from os import getenv
 from subprocess import Popen, PIPE
 from typing import List
@@ -25,6 +26,18 @@ LRS_ENV = "LRS_PATH"
 
 """Default path to the user's `lrs` executable."""
 LRS_PATH = getenv(LRS_ENV, "lrs")
+
+
+def check_for_lrs():
+    """
+    Checks whether `lrs` is findable and executable.
+    """
+    try:
+        proc = Popen([LRS_PATH], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        proc.communicate(b"")
+        return True
+    except Exception:  # FileNotFoundError, for instance
+        return False
 
 
 class LRSBackend(Backend):
@@ -54,9 +67,12 @@ class LRSBackend(Backend):
         equalities = convex_polytope.equalities
         inequality_payload = encode_inequalities(
             inequalities, equalities,
-            options=["redund 0 0"]  # lrs ≥ 7.1
+            # options=["redund 0 0"]  # lrs ≥ 7.1
         )
-        inequality_response = single_lrs_pass(inequality_payload)
+        vertex_response = single_lrs_pass(inequality_payload)
+        vertices = decode_vertices(vertex_response)
+        vertex_payload = encode_vertices(vertices)
+        inequality_response = single_lrs_pass(vertex_payload)
         inequality_dictionary = decode_inequalities(inequality_response)
 
         clone.inequalities = inequality_dictionary["inequalities"]
@@ -89,15 +105,6 @@ class LRSBackend(Backend):
         return simplices["simplices"]
 
 
-def check_for_lrs():
-    try:
-        proc = Popen([LRS_PATH], stdin=PIPE, stdout=PIPE, stderr=PIPE)
-        proc.communicate(b"")
-        return True
-    except Exception:  # FileNotFoundError, for instance
-        return False
-
-
 def single_lrs_pass(payload: bytes) -> bytes:
     """Generic wrapper for lrs."""
     proc = Popen([LRS_PATH], stdin=PIPE, stdout=PIPE, stderr=PIPE)
@@ -123,8 +130,9 @@ def encode_inequalities(inequalities, equalities=None, name="name",
                f" {len((inequalities + equalities)[0])}"
                " rational\n")
     for row in inequalities + equalities + [[-x for x in eq] for eq in equalities]:
-        row_lcm = abs(lcm(*[x.denominator for x in row]))
-        output += " ".join([str(x * row_lcm) for x in row]) + "\n"
+        row_gcd = abs(reduce(math.gcd, row))
+        row_gcd = row_gcd if row_gcd != 0 else 1
+        output += " ".join([str(x // row_gcd) for x in row]) + "\n"
     output += "end\n"
     for option in options:
         output += f"{option}\n"
@@ -182,7 +190,10 @@ def decode_inequalities(lrs_output: bytes):
         if line.startswith('linearity'):
             equality_indices = [int(x) for x in line[9:].split()[1:]]
             continue
-        rows.append([Fraction(x) for x in line.split()])
+
+        new_row = [Fraction(x) for x in line.split()]
+        row_lcm = abs(lcm(*[x.denominator for x in new_row]))
+        rows.append([int(x * row_lcm) for x in new_row])
 
     if 0 == len(rows):
         if break_at_end:

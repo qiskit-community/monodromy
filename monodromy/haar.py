@@ -5,7 +5,6 @@ Routines for calculating the Haar volume of polytopes expressed in positive
 canonical coordinates.
 """
 
-from fractions import Fraction
 from math import sqrt
 
 import numpy as np
@@ -14,7 +13,7 @@ from .coordinates import monodromy_to_positive_canonical_polytope
 from .examples import empty_polytope
 from .polynomials import Polynomial, TrigPolynomial
 from .polytopes import alternating_sum, make_convex_polytope
-from .utilities import epsilon, fractionify
+from .utilities import epsilon
 
 
 # duck typing means poor dispatching...
@@ -141,8 +140,8 @@ def distance_polynomial_integrals(coverage_set, max_degree=0, chatty=False):
     calculated integration values.
     """
     # TODO: check these constant terms, depends on what "normalized coordinates" are
-    positive_halfspace = make_convex_polytope(fractionify([[1/4, -1, 0, 0]]))
-    negative_halfspace = make_convex_polytope(fractionify([[-1/4, 1, 0, 0]]))
+    positive_halfspace = make_convex_polytope([[ 1, -4, 0, 0]])
+    negative_halfspace = make_convex_polytope([[-1,  4, 0, 0]])
 
     positive_polytopes_so_far = empty_polytope
     negative_polytopes_so_far = empty_polytope

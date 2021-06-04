@@ -41,7 +41,7 @@ from typing import List, Optional
 import numpy as np
 
 from .polytopes import ConvexPolytope, make_convex_polytope, Polytope
-from .utilities import epsilon, fractionify
+from .utilities import epsilon
 
 
 """
@@ -50,12 +50,12 @@ normalized positive canonical coordinates for SU(4).
 
 cf. Eqn 6 of Entropy.
 """
-positive_canonical_convex_polytope_su4 = make_convex_polytope(fractionify([
+positive_canonical_convex_polytope_su4 = make_convex_polytope([
     [1, -1,  0,  0],  # 1  >= c1
     [0,  1, -1,  0],  # c1 >= c2
     [0,  0,  1, -1],  # c2 >= c3
     [1, -1, -1,  0],  # 1 - c1 >= c2
-]))
+])
 
 
 """
@@ -64,32 +64,32 @@ normalized positive canonical coordinates for PU(4).
 
 cf. Eqn 6 of Entropy.
 """
-positive_canonical_convex_polytope = make_convex_polytope(fractionify([
+positive_canonical_convex_polytope = make_convex_polytope([
     *positive_canonical_convex_polytope_su4.convex_subpolytopes[0].inequalities,
     [0, 0, 0, 1],  # c3 >=  0, the C2 inequality
-]))
+])
 
 
 """
 Inequalities defining the fundamental Weyl alcove used in monodromy polytope
 calculations for SU(4).
 """
-alcove = make_convex_polytope(fractionify([
+alcove = make_convex_polytope([
     [0,  1, -1,  0, ],  # a1 - a2 >= 0
     [0,  0,  1, -1, ],  # a2 - a3 >= 0
     [0,  1,  1,  2, ],  # a3 - a4 >= 0
     [1, -2, -1, -1, ],  # a4 - (a1 - 1) >= 0
-]))
+])
 
 
 """
 Inequalities defining the fundamental Weyl alcove used in monodromy polytope
 calculations for PU(4).
 """
-alcove_c2 = make_convex_polytope(fractionify([
+alcove_c2 = make_convex_polytope([
     *alcove.convex_subpolytopes[0].inequalities,
     [0, 0, 1, 1, ],  # a2 + a3 >= 0 , the C2 inequality
-]))
+])
 
 
 def normalize_logspec_A(coordinate):

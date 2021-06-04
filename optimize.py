@@ -33,9 +33,9 @@ np.random.seed(0)
 def operation_cost(
         strength: Fraction,
         # note: Isaac reports this value in percent per degree
-        scale_factor: Fraction = Fraction(64 * 90, 10000 * 100),
+        scale_factor: float = (64 * 90) / (10000 * 100),
         # first component: 2Q invocation cost; second component: local cost
-        offset: Fraction = Fraction(909, 10000 * 100) + Fraction(1, 1000),
+        offset: float = 909 / (10000 * 100) + 1 / 1000,
 ):
     return strength * scale_factor + offset
 

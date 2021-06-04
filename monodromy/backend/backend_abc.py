@@ -49,9 +49,10 @@ class Backend(ABC):
 
     @staticmethod
     @abstractmethod
-    def triangulation(vertices):  # ConvexPolytope -> List[List]
+    def triangulation(convex_polytope):  # ConvexPolytope -> List[List[int]]
         """
-        Given a set of vertices, calculate a triangulation of their convex hull.
-        Returns a list of 4-tuples of indices into the vertex sequence.
+        Calculates a triangulation of the input ConvexPolytope.  Returns a list
+        of simplices, each specified as a list of its vertices, in turn each
+        specified as the index into .vertices at which it appears.
         """
         pass

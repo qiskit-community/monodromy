@@ -24,7 +24,7 @@ from .coordinates import alcove_to_positive_canonical_coordinate,\
     unitary_to_alcove_coordinate
 from .coverage import intersect_and_project, GatePolytope
 from .decompose import decompose_xxyy_into_xxyy_xx
-from .examples import exactly, fractionify, canonical_matrix
+from .examples import exactly, canonical_matrix
 from .polytopes import ConvexPolytope, Polytope
 from .utilities import epsilon
 
@@ -171,41 +171,40 @@ def decomposition_hop(
         c_polytope=target_polytope,
         extra_polytope=Polytope(convex_subpolytopes=[
             # equate first source and first target coordinates
-            ConvexPolytope(inequalities=fractionify([
+            ConvexPolytope(inequalities=[
                 [0, 1, 1, 0, 0, 0, 0, -1, -1, 0],
                 [0, -1, -1, 0, 0, 0, 0, 1, 1, 0],
-            ])),
+            ]),
             # equate first source and second target coordinates
-            ConvexPolytope(inequalities=fractionify([
+            ConvexPolytope(inequalities=[
                 [0, 1, 1, 0, 0, 0, 0, -1, 0, -1],
                 [0, -1, -1, 0, 0, 0, 0, 1, 0, 1],
-            ])),
+            ]),
             # equate first source and third target coordinates
-            ConvexPolytope(inequalities=fractionify([
+            ConvexPolytope(inequalities=[
                 [0, 1, 1, 0, 0, 0, 0, 0, -1, -1],
                 [0, -1, -1, 0, 0, 0, 0, 0, 1, 1],
-            ])),
+            ]),
             # equate second source and second target coordinates
-            ConvexPolytope(inequalities=fractionify([
+            ConvexPolytope(inequalities=[
                 [0, 1, 0, 1, 0, 0, 0, -1, 0, -1],
                 [0, -1, 0, -1, 0, 0, 0, 1, 0, 1],
-            ])),
+            ]),
             # equate second source and third target coordinates
-            ConvexPolytope(inequalities=fractionify([
+            ConvexPolytope(inequalities=[
                 [0, 1, 0, 1, 0, 0, 0, 0, -1, -1],
                 [0, -1, 0, -1, 0, 0, 0, 0, 1, 1],
-            ])),
+            ]),
             # equate third source and third target coordinates
-            ConvexPolytope(inequalities=fractionify([
+            ConvexPolytope(inequalities=[
                 [0, 0, 1, 1, 0, 0, 0, 0, -1, -1],
                 [0, 0, -1, -1, 0, 0, 0, 0, 1, 1],
-            ])),
+            ]),
         ])
     )
 
     # pick any nonzero point in the backsolution polytope,
     # then recurse on that point and the ancestor polytope
-
     all_vertices = []
     for convex_polytope in backsolution_polytope.convex_subpolytopes:
         all_vertices += convex_polytope.vertices

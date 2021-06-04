@@ -20,7 +20,7 @@ class GatePolytope(Polytope):
     """
     A polytope describing the alcove coverage of a particular circuit type.
     """
-    cost: Fraction
+    cost: float
     operations: List[str]
 
     def __gt__(self, other):
@@ -63,11 +63,11 @@ def rho_reflect(polytope, coordinates=None):
             y = inequality[coordinates[2]]
             z = inequality[coordinates[3]]
 
-            new_inequality = copy(inequality)
-            new_inequality[coordinates[0]] = d + x / 2 + y / 2 - z / 2
-            new_inequality[coordinates[1]] = z - y
-            new_inequality[coordinates[2]] = 0 - y
-            new_inequality[coordinates[3]] = x - y
+            new_inequality = [2 * x for x in inequality]
+            new_inequality[coordinates[0]] = 2 * d + x + y - z
+            new_inequality[coordinates[1]] = 2 * z - 2 * y
+            new_inequality[coordinates[2]] = 2 * 0 - 2 * y
+            new_inequality[coordinates[3]] = 2 * x - 2 * y
 
             rotated_inequalities.append(new_inequality)
 
@@ -77,11 +77,11 @@ def rho_reflect(polytope, coordinates=None):
             y = equality[coordinates[2]]
             z = equality[coordinates[3]]
 
-            new_equality = copy(equality)
-            new_equality[coordinates[0]] = d + x / 2 + y / 2 - z / 2
-            new_equality[coordinates[1]] = z - y
-            new_equality[coordinates[2]] = 0 - y
-            new_equality[coordinates[3]] = x - y
+            new_equality = [2 * x for x in equality]
+            new_equality[coordinates[0]] = 2 * d + x + y - z
+            new_equality[coordinates[1]] = 2 * z - 2 * y
+            new_equality[coordinates[2]] = 2 * 0 - 2 * y
+            new_equality[coordinates[3]] = 2 * x - 2 * y
 
             rotated_equalities.append(new_equality)
 
@@ -206,7 +206,7 @@ def build_coverage_set(
     total_polytope = GatePolytope(
         convex_subpolytopes=identity_polytope.convex_subpolytopes,
         operations=[],
-        cost=Fraction(0),
+        cost=0.,
     )
     necessary_polytopes = [total_polytope]
 

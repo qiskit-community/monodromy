@@ -8,12 +8,12 @@ import monodromy.render
 operations = [
     GatePolytope(
         convex_subpolytopes=thirdCX_polytope.convex_subpolytopes,
-        cost=Fraction(1, 3),
+        cost=1/3,
         operations=["thirdCX"],
     ),
     GatePolytope(
         convex_subpolytopes=sqrtCX_polytope.convex_subpolytopes,
-        cost=Fraction(1, 2),
+        cost=1/2,
         operations=["sqrtCX"],
     ),
 ]

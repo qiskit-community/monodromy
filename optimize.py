@@ -11,12 +11,12 @@ from itertools import count
 import math
 from time import perf_counter
 
+import numpy as np
 import pybobyqa
 
 from monodromy.coverage import *
-from monodromy.examples import *
+from monodromy.static.examples import *
 from monodromy.haar import expected_cost
-from monodromy.scipy import *
 
 
 cost_table = {}
@@ -74,7 +74,8 @@ def objective(ratios):
     timer_haar = perf_counter() - timer_haar
     cost_table[tuple(ratios)] = cost
     print(
-        f"{strengths_string} took {timer_coverage:.3f}s + {timer_haar:.3f}s = {timer_coverage + timer_haar:.3f}s")
+        f"{strengths_string} took {timer_coverage:.3f}s + {timer_haar:.3f}s = "
+        f"{timer_coverage + timer_haar:.3f}s")
     return cost
 
 

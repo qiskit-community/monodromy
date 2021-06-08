@@ -1,9 +1,14 @@
-from monodromy.circuits import *
+from monodromy.xx_decompose.circuits import *
+from monodromy.xx_decompose.defaults import *
+from monodromy.xx_decompose.precalculate import calculate_unordered_scipy_coverage_set
+from monodromy.xx_decompose.paths import scipy_unordered_decomposition_hops
 from monodromy.coordinates import alcove_to_positive_canonical_coordinate
 from monodromy.coverage import *
-from monodromy.examples import *
+from monodromy.static.examples import *
 from monodromy.haar import expected_cost
 import monodromy.render
+
+import qiskit.quantum_info
 
 operations = get_zx_operations({
     frac: default_zx_operation_cost(frac)
@@ -26,9 +31,16 @@ print("==== Render these in Mathematica: =====")
 print(monodromy.render.polytopes_to_mathematica(coverage_set))
 
 # use coverage_set to perform a gate decomposition
+print("Precomputation...")
+
+scipy_coverage_set = calculate_unordered_scipy_coverage_set(
+    coverage_set, operations, chatty=True
+)
 alcove_coordinate = [Fraction(3, 8), Fraction(3, 8), Fraction(-1, 8)]
 point_polytope = exactly(*alcove_coordinate)
-decomposition = decomposition_hops(coverage_set, operations, point_polytope)
+decomposition = scipy_unordered_decomposition_hops(
+    coverage_set, scipy_coverage_set, point_polytope
+)
 for input_alcove_coord, operation, output_alcove_coord in decomposition:
     line = "("
     line += " π/4, ".join([f"{float(x / (np.pi/4)):+.3f}"

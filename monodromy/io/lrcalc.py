@@ -1,5 +1,5 @@
 """
-monodromy/lrcalc.py
+monodromy/io/lrcalc.py
 
 Extracts quantum Littlewood-Richardson coefficients from the package `lrcalc`.
 

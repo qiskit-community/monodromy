@@ -1,9 +1,7 @@
 """
 monodromy/render.py
 
-Utilities for rendering the generated polytopes.
-
-In the future, it would be cool to use something self-contained like `fresnel`.
+Utilities for rendering polytopes.
 """
 
 from typing import List

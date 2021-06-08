@@ -1,10 +1,10 @@
 """
-monodromy/qlr_table.py
+monodromy/static/qlr_table.py
 
-Precomputed descriptions of the monodromy polytope for SU(4) and PU(4).
+Precomputed descriptions of the monodromy polytope for SU(4) (and PU(4)).
 """
 
-from .polytopes import make_convex_polytope
+from ..polytopes import make_convex_polytope
 
 
 """

@@ -6,13 +6,15 @@ canonical coordinates.
 """
 
 from math import sqrt
+from typing import List
 
 import numpy as np
 
 from .coordinates import monodromy_to_positive_canonical_polytope
-from .examples import empty_polytope
+from .io.base import CircuitPolytopeData
 from .polynomials import Polynomial, TrigPolynomial
 from .polytopes import alternating_sum, make_convex_polytope
+from .static.examples import empty_polytope
 from .utilities import epsilon
 
 
@@ -132,14 +134,17 @@ def haar_volume(polytope, integrand=None):
     return alternating_sum(polytope, volume_fn)
 
 
-def distance_polynomial_integrals(coverage_set, max_degree=0, chatty=False):
+def distance_polynomial_integrals(
+        coverage_set: List[CircuitPolytopeData],
+        max_degree=0,
+        chatty=False
+):
     """
     Computes the integrals of dist^n dHaar over the "fresh" part of each member
     of `coverage_set` for exponent n in the range [0, max_degree].  Returns a
     dictionary mapping operations tuples from the `coverage_set` to a list of
     calculated integration values.
     """
-    # TODO: check these constant terms, depends on what "normalized coordinates" are
     positive_halfspace = make_convex_polytope([[ 1, -4, 0, 0]])
     negative_halfspace = make_convex_polytope([[-1,  4, 0, 0]])
 

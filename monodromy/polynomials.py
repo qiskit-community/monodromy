@@ -16,8 +16,7 @@ import math
 from numbers import Real
 from typing import Dict, Tuple
 
-
-epsilon = 1e-8
+from .utilities import epsilon
 
 
 def canonicalize_power_tuple(power_tuple):

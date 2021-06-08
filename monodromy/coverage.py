@@ -1,5 +1,8 @@
 """
 monodromy/coverage.py
+
+Routines for converting a family of native gates to a minimal set of minimum-
+cost circuits whose union covers the entire monodromy polytope.
 """
 
 from dataclasses import dataclass
@@ -8,19 +11,11 @@ import heapq
 from typing import Dict, List, Optional
 
 from .coordinates import alcove, alcove_c2
+from .io.base import CircuitPolytopeData
 from .elimination import cylinderize, project
-from .examples import everything_polytope, identity_polytope
-from .polytopes import ConvexPolytope, Polytope, PolytopeData, trim_polytope_set
-from .qlr_table import qlr_polytope
-
-
-@dataclass
-class CircuitPolytopeData(PolytopeData):
-    """
-    A polytope describing the alcove coverage of a particular circuit type.
-    """
-    cost: float
-    operations: List[str]
+from .polytopes import ConvexPolytope, Polytope, trim_polytope_set
+from .static.examples import everything_polytope, identity_polytope
+from .static.qlr_table import qlr_polytope
 
 
 @dataclass
@@ -316,6 +311,7 @@ def print_coverage_set(necessary_polytopes):
             vol = vol.volume / alcove_c2.volume.volume
         else:
             vol = Fraction(0)
-        print(f"{float(100 * vol):6.2f}% = {str(vol.numerator): >4}/{str(vol.denominator): <4} "
+        print(f"{float(100 * vol):6.2f}% = "
+              f"{str(vol.numerator): >4}/{str(vol.denominator): <4} "
               f"\t | {float(gate.cost):4.2f}"
               f"\t | {'.'.join(gate.operations)}")

@@ -1,14 +1,12 @@
 """
-monodromy/pass.py
+monodromy/xx_decompose/pass.py
 
-Staging ground for a QISKit Terra compilation pass which emits circuits in the
-style of monodromy/circuits.py .
+Staging ground for a QISKit Terra compilation pass which emits ZX circuits.
 """
 
 from math import cos, sin, sqrt
 
 import numpy as np
-import scipy.optimize
 
 from qiskit import QuantumCircuit, QuantumRegister
 from qiskit.quantum_info.synthesis import OneQubitEulerDecomposer
@@ -17,76 +15,18 @@ from qiskit.quantum_info.synthesis.two_qubit_decompose import \
 
 from .circuits import apply_reflection, apply_shift, \
     xx_circuit_from_decomposition
-from .coordinates import alcove_to_positive_canonical_coordinate, \
+from ..coordinates import alcove_to_positive_canonical_coordinate, \
     unitary_to_alcove_coordinate
-from .polytopes import ConvexPolytopeData
-from .scipy import nearly, NoBacksolution, scipy_unordered_decomposition_hops
-from .utilities import epsilon
-
-
-def optimize_over_polytope(
-        fn,
-        convex_polytope: ConvexPolytopeData
-) -> scipy.optimize.OptimizeResult:
-    """
-    Optimizes the function `fn`: array --> reals over `convex_polytope`.
-    """
-    dimension = None
-
-    constraints = []
-
-    if 0 < len(convex_polytope.inequalities):
-        dimension = -1 + len(convex_polytope.inequalities[0])
-        A_ub = np.array([[float(x) for x in ineq[1:]]
-                         for ineq in convex_polytope.inequalities])
-        b_ub = np.array([float(ineq[0])
-                         for ineq in convex_polytope.inequalities])
-        constraints.append(dict(
-            type='ineq',
-            fun=lambda x: A_ub @ x + b_ub
-        ))
-
-    if 0 < len(convex_polytope.equalities):
-        dimension = -1 + len(convex_polytope.equalities[0])
-        A_eq = np.array([[float(x) for x in eq[1:]]
-                         for eq in convex_polytope.equalities])
-        b_eq = np.array([float(eq[0]) for eq in convex_polytope.equalities])
-        constraints.append(dict(
-            type='ineq',
-            fun=lambda x: A_eq @ x + b_eq
-        ))
-        constraints.append(dict(
-            type='ineq',
-            fun=lambda x: -A_eq @ x - b_eq
-        ))
-
-    return scipy.optimize.minimize(
-        fun=fn,
-        x0=np.array([1 / 4] * dimension),
-        constraints=constraints
-    )
-
-
-def has_element(polytope, point):
-    """
-    A standalone variant of Polytope.has_element.
-    """
-    return any([(all([-epsilon <= inequality[0] +
-                      sum(x * y for x, y in
-                          zip(point, inequality[1:]))
-                      for inequality in cp.inequalities]) and
-                 all([abs(equality[0] + sum(x * y for x, y in
-                                            zip(point, equality[1:])))
-                      <= epsilon
-                      for equality in cp.equalities]))
-                for cp in polytope.convex_subpolytopes])
+from .paths import NoBacksolution, scipy_unordered_decomposition_hops
+from .scipy import has_element, nearly, optimize_over_polytope
+from ..utilities import epsilon
 
 
 # TODO: stick to working with canonical coordinates everywhere, rather than
 #       flipping with monodromy coordinates.
 
 
-class MonodromyZXDecomposer():
+class MonodromyZXDecomposer:
     """
     A class for decomposing 2-qubit unitaries into minimal number of uses of a
     2-qubit basis gate.

@@ -1,14 +1,19 @@
 """
-monodromy/xx_decompose/pass.py
+monodromy/xx_decompose/qiskit.py
 
 Staging ground for a QISKit Terra compilation pass which emits ZX circuits.
 """
 
+from fractions import Fraction
 from math import cos, sin, sqrt
 
 import numpy as np
 
 from qiskit import QuantumCircuit, QuantumRegister
+from qiskit.circuit.library import RZXGate
+from qiskit.extensions import UnitaryGate
+from qiskit.transpiler.passes.optimization import Optimize1qGatesDecomposition
+from qiskit.quantum_info.operators import Operator
 from qiskit.quantum_info.synthesis import OneQubitEulerDecomposer
 from qiskit.quantum_info.synthesis.two_qubit_decompose import \
     TwoQubitWeylDecomposition
@@ -17,6 +22,8 @@ from .circuits import apply_reflection, apply_shift, \
     xx_circuit_from_decomposition
 from ..coordinates import alcove_to_positive_canonical_coordinate, \
     unitary_to_alcove_coordinate
+from .defaults import get_zx_operations, deflated_data
+from ..io.inflate import inflate_scipy_data
 from .paths import NoBacksolution, scipy_unordered_decomposition_hops
 from .scipy import has_element, nearly, optimize_over_polytope
 from ..utilities import epsilon
@@ -48,6 +55,9 @@ class MonodromyZXDecomposer:
             operations, coverage_set, precomputed_backsolutions
 
         self._decomposer1q = OneQubitEulerDecomposer(euler_basis)
+        self._optimize1q = Optimize1qGatesDecomposition(euler_basis)
+
+        self.gate = RZXGate(np.pi/2)
 
     @staticmethod
     def _build_objective(target):
@@ -67,7 +77,7 @@ class MonodromyZXDecomposer:
 
     def _best_decomposition(self, target,
                             approximate=True,
-                            chatty=True):  # -> (coord, cost, op'ns)
+                            chatty=False):  # -> (coord, cost, op'ns)
         """
         Searches over different circuit templates for the least coatly
         embodiment of the canonical coordinate `target`.  If `approximate` is
@@ -118,19 +128,65 @@ class MonodromyZXDecomposer:
                 break
 
         if approximate:
-            return overall_best_point, overall_best_cost,overall_best_operations
+            return overall_best_point, overall_best_cost, overall_best_operations
         else:
             raise ValueError("Failed to find a match.")
 
-    def __call__(self, u, approximate=True, chatty=True):
+    def num_basis_gates(self, unitary, approximate=True, chatty=False):
+        """
+        Counts the number of gates that would be emitted during re-synthesis.
+
+        Used by ConsolidateBlocks.
+        """
+        target = unitary_to_alcove_coordinate(unitary)[:3]
+        _, _, overall_best_operations = \
+            self._best_decomposition(target,
+                                     approximate=approximate,
+                                     chatty=chatty)
+        return len(overall_best_operations)
+
+    def decompose_1q(self, circuit):
+        """
+        Gather the one-qubit substrings in a two-qubit circuit and apply the
+        local decomposer.
+        """
+        circ_0 = QuantumCircuit(1)
+        circ_1 = QuantumCircuit(1)
+        output_circuit = QuantumCircuit(2)
+
+        for gate, q, _ in circuit:
+            if q == [circuit.qregs[0][0]]:
+                circ_0.append(gate, [0])
+            elif q == [circuit.qregs[0][1]]:
+                circ_1.append(gate, [0])
+            else:
+                circ_0 = self._decomposer1q(Operator(circ_0).data)
+                circ_1 = self._decomposer1q(Operator(circ_1).data)
+                output_circuit.compose(circ_0, [0], inplace=True)
+                output_circuit.compose(circ_1, [1], inplace=True)
+                output_circuit.append(gate, [0, 1])
+                circ_0 = QuantumCircuit(1)
+                circ_1 = QuantumCircuit(1)
+
+        circ_0 = self._decomposer1q(Operator(circ_0).data)
+        circ_1 = self._decomposer1q(Operator(circ_1).data)
+        output_circuit.compose(circ_0, [0], inplace=True)
+        output_circuit.compose(circ_1, [1], inplace=True)
+
+        return output_circuit
+
+    def __call__(self, u, basis_fidelity=None, approximate=True, chatty=False):
         """
         Fashions a circuit which (perhaps `approximate`ly) models the special
         unitary operation `u`, using the circuit templates supplied at
         initialization.
+
+        NOTE: Ignores `basis_fidelity` in favor of the operation tables loaded
+              at initialization time.
         """
         target = unitary_to_alcove_coordinate(u)[:3]
         overall_best_point, overall_best_cost, overall_best_operations = \
-            self._best_decomposition(target, approximate=approximate)
+            self._best_decomposition(target, approximate=approximate, chatty=chatty)
 
         if chatty:
             print(f"Overall best: {overall_best_point} hits "
@@ -219,15 +275,31 @@ class MonodromyZXDecomposer:
 
         q = circuit.qubits[0].register
         circ = QuantumCircuit(q, global_phase=weyl_decomposition.global_phase)
-        # Q: Why am I calling oneq_synth at all?
-        circ.compose(self._decomposer1q(weyl_decomposition.K2r), [0],
-                     inplace=True)
-        circ.compose(self._decomposer1q(weyl_decomposition.K2l), [1],
-                     inplace=True)
-        circ.compose(circuit, [0, 1], inplace=True)
-        circ.compose(self._decomposer1q(weyl_decomposition.K1r), [0],
-                     inplace=True)
-        circ.compose(self._decomposer1q(weyl_decomposition.K1l), [1],
-                     inplace=True)
 
-        return circ
+        circ.append(UnitaryGate(weyl_decomposition.K2r), [0])
+        circ.append(UnitaryGate(weyl_decomposition.K2l), [1])
+        circ.compose(circuit, [0, 1], inplace=True)
+        circ.append(UnitaryGate(weyl_decomposition.K1r), [0])
+        circ.append(UnitaryGate(weyl_decomposition.K1l), [1])
+
+        return self.decompose_1q(circ)
+
+
+def monodromy_decomposer_from_approximation_degree(
+        euler_basis="U3",
+        approximation_degree=1.0,
+):
+    operations = get_zx_operations({
+        # This is kind of gross.
+        # * 1.e-10 is a small, below-hardware-granularity threshold that permits
+        #   the sorting mechanism in inflate_scipy_data to still function.
+        # * 12/5 * 1/k means that CX^1/3 is taken to have 0.8 error, which is
+        #   the maximum amount possible with gate average fidelity.
+        # * (1 - approximation_degree) interpolates between minimum assumed
+        #   error (80% at 1.0) and maximum assumed error (0% at 0.0).
+        Fraction(1, k): 1.e-10 + 12 / 5 * 1 / k * \
+                                (1.e-10 + (1 - 1.e-10) * (1 - approximation_degree))
+        for k in [1, 2, 3]
+    })
+    inflated_data = inflate_scipy_data(operations, **deflated_data, chatty=False)
+    return MonodromyZXDecomposer(**inflated_data, euler_basis=euler_basis)

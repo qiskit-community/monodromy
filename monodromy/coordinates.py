@@ -87,9 +87,15 @@ Inequalities defining the fundamental Weyl alcove used in monodromy polytope
 calculations for PU(4).
 """
 alcove_c2 = make_convex_polytope([
-    *alcove.convex_subpolytopes[0].inequalities,
-    [0, 0, 1, 1, ],  # a2 + a3 >= 0 , the C2 inequality
+    [1, -2, -1, -1],
+    [0,  0,  1,  1],
+    [0,  1, -1,  0],
+    [0,  0,  1, -1]
 ])
+# alcove_c2 = make_convex_polytope([
+#     *alcove.convex_subpolytopes[0].inequalities,
+#     [0, 0, 1, 1, ],  # a2 + a3 >= 0 , the C2 inequality
+# ]).reduce()
 
 
 def normalize_logspec_A(coordinate):

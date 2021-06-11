@@ -61,7 +61,7 @@ def filter_scipy_data(
         if (set([tuple(x) for x in
                  polytope.convex_subpolytopes[0].inequalities]) ==
             set([tuple(x) for x in
-                 alcove_c2.reduce().convex_subpolytopes[0].inequalities])):
+                 alcove_c2.convex_subpolytopes[0].inequalities])):
             break
 
     if chatty:

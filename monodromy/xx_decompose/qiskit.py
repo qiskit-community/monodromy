@@ -22,8 +22,8 @@ from .circuits import apply_reflection, apply_shift, \
     xx_circuit_from_decomposition
 from ..coordinates import alcove_to_positive_canonical_coordinate, \
     unitary_to_alcove_coordinate
-from .defaults import get_zx_operations, deflated_data
-from ..io.inflate import inflate_scipy_data
+from .defaults import get_zx_operations, default_data
+from ..io.inflate import filter_scipy_data
 from .paths import NoBacksolution, scipy_unordered_decomposition_hops
 from .scipy import has_element, nearly, optimize_over_polytope
 from ..utilities import epsilon
@@ -301,5 +301,5 @@ def monodromy_decomposer_from_approximation_degree(
                                 (1.e-10 + (1 - 1.e-10) * (1 - approximation_degree))
         for k in [1, 2, 3]
     })
-    inflated_data = inflate_scipy_data(operations, **deflated_data, chatty=False)
+    inflated_data = filter_scipy_data(operations, **default_data, chatty=False)
     return MonodromyZXDecomposer(**inflated_data, euler_basis=euler_basis)

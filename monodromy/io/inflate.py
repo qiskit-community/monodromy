@@ -5,28 +5,50 @@ Routines for re-inflating a previously exported coverage set.
 """
 
 from collections import Counter
-from typing import List
+from typing import Dict, List, Tuple
 
 from ..xx_decompose.circuits import OperationPolytope
 from .base import CircuitPolytopeData
 from ..coordinates import alcove_c2
 
 
-def inflate_scipy_data(
+def inflate_scipy_data(deflated_data):
+    """
+    Re-inflates serialized coverage set data.
+    """
+
+    coverage_set = {
+        k: CircuitPolytopeData.inflate(v)
+        for k, v in deflated_data["coverage_set"].items()
+    }
+    precomputed_backsolutions = [
+        CircuitPolytopeData.inflate(d)
+        for d in deflated_data["precomputed_backsolutions"]
+    ]
+
+    return {
+        "coverage_set": coverage_set,
+        "precomputed_backsolutions": precomputed_backsolutions,
+    }
+
+
+def filter_scipy_data(
         operations: List[OperationPolytope],
         *,
-        serialized_coverage_set=None,
-        serialized_scipy_coverage_set=None,
+        coverage_set: Dict[Tuple, CircuitPolytopeData] = None,
+        precomputed_backsolutions: List[CircuitPolytopeData] = None,
         chatty=True,
 ):
     """
-    Reinflates the compilation tables to be supplied to `MonodromyZXDecomposer`.
+    Attaches costs to the tables to be supplied to `MonodromyZXDecomposer`.
     """
     # reinflate the polytopes, simultaneously calculating their current cost
     inflated_polytopes = [
-        CircuitPolytopeData.inflate(
-            {**v, "cost": sum([x * y.cost for x, y in zip(k, operations)])}
-        ) for k, v in serialized_coverage_set.items()
+        CircuitPolytopeData(
+            cost=sum([x * y.cost for x, y in zip(k, operations)]),
+            convex_subpolytopes=v.convex_subpolytopes,
+            operations=v.operations,
+        ) for k, v in coverage_set.items()
     ]
 
     # retain only the low-cost polytopes, discarding everything after a
@@ -74,10 +96,10 @@ def inflate_scipy_data(
     reinflated_scipy = []
     coverage_trimmed_signatures = [Counter(x.operations)
                                    for x in coverage_trimmed_polytopes]
-    for x in serialized_scipy_coverage_set:
-        x = CircuitPolytopeData.inflate(x)
-        if Counter(x.operations) in coverage_trimmed_signatures:
-            reinflated_scipy.append(x)
+    reinflated_scipy = [
+        x for x in precomputed_backsolutions
+        if Counter(x.operations) in coverage_trimmed_signatures
+    ]
 
     return {
         "operations": operations,

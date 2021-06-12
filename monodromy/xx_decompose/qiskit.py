@@ -202,7 +202,7 @@ class MonodromyZXDecomposer:
                 decomposition = scipy_unordered_decomposition_hops(
                     self.coverage_set,
                     self.precomputed_backsolutions,
-                    nearly(*overall_best_point)
+                    overall_best_point
                 )
 
                 if chatty:

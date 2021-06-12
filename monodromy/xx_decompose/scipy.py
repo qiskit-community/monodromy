@@ -4,11 +4,15 @@ monodromy/xx_decompose/scipy.py
 Utilities for interacting with polytope data through scipy.
 """
 
+from copy import copy
+from itertools import combinations
+from random import sample, shuffle
 import warnings
 
 import numpy as np
 import scipy.optimize
 
+from ..backend.backend_abc import NoFeasibleSolutions
 from ..io.base import ConvexPolytopeData, PolytopeData
 from ..utilities import epsilon
 
@@ -129,3 +133,34 @@ def scipy_get_random_vertex(
                          # cholesky=False, lstsq=True,
                          tol=1e-10, ),
         )
+
+
+def manual_get_random_vertex(polytope: PolytopeData):
+    """
+    Returns a single random vertex from `polytope`.
+
+    Same as `scipy_get_random_vertex`, but computed without scipy.
+    """
+    vertices = []
+
+    paragraphs = copy(polytope.convex_subpolytopes)
+    shuffle(paragraphs)
+    for convex_subpolytope in paragraphs:
+        sentences = convex_subpolytope.inequalities + \
+                    convex_subpolytope.equalities
+        shuffle(sentences)
+        for inequalities in combinations(sentences, 3):
+            A = np.array([x[1:] for x in inequalities])
+            b = np.array([x[0] for x in inequalities])
+            try:
+                vertex = np.linalg.inv(-A) @ b
+                if has_element(polytope, vertex):
+                    # vertices.append(vertex)
+                    return vertex
+            except np.linalg.LinAlgError:
+                pass
+
+    if 0 == len(vertices):
+        raise NoFeasibleSolutions()
+
+    return sample(vertices, 1)[0]

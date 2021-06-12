@@ -10,7 +10,7 @@ from functools import wraps
 from typing import List
 
 
-epsilon = Fraction(1, 100_000_000)  # 1e-8
+epsilon = 1e-8  # Fraction(1, 100_000_000)
 
 
 memoized_attr_bucket = '_memoized_attrs'

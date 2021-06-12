@@ -22,18 +22,18 @@ NOTE: The routines in this file can fail for numerical reasons, and so they are
 """
 
 from collections import Counter
-from random import shuffle
 from typing import List
 
+from ..backend.backend_abc import NoFeasibleSolutions
 from .circuits import NoBacksolution
 from ..io.base import ConvexPolytopeData, PolytopeData, CircuitPolytopeData
-from .scipy import nearly, scipy_get_random_vertex
+from .scipy import has_element, manual_get_random_vertex, nearly
 
 
 def scipy_unordered_decomposition_hops(
         coverage_set: List[CircuitPolytopeData],
         scipy_coverage_set: List[CircuitPolytopeData],
-        target_polytope: PolytopeData
+        target: List  # raw target tuple
 ):
     """
     Fixing a `coverage_set` and a `scipy_coverage_set`, finds a minimal
@@ -60,34 +60,18 @@ def scipy_unordered_decomposition_hops(
     # NOTE: In practice, this computation has already been done.
     best_cost = float("inf")
     for polytope in coverage_set:
-        if polytope.cost < best_cost:
-            for convex_subpolytope in polytope.convex_subpolytopes:
-                solution = scipy_get_random_vertex(
-                    ConvexPolytopeData(
-                        inequalities=[
-                            *convex_subpolytope.inequalities,
-                            *target_polytope.convex_subpolytopes[0].inequalities
-                        ],
-                        equalities=[
-                            *convex_subpolytope.equalities,
-                            *target_polytope.convex_subpolytopes[0].equalities
-                        ]
-                    )
-                )
-
-                if solution.success:
-                    working_polytope = polytope
-                    best_cost = polytope.cost
-                    break
+        if polytope.cost < best_cost and has_element(polytope, target):
+            working_polytope = polytope
+            best_cost = polytope.cost
 
     if working_polytope is None:
-        raise ValueError(f"{target_polytope} not contained in coverage set.")
+        raise ValueError(f"{target} not contained in coverage set.")
 
     working_operations = working_polytope.operations
 
     # if this polytope corresponds to the empty operation, we're done.
     while 0 < len(working_operations):
-        backsolution_polytope = None
+        backsolution_polytope = PolytopeData(convex_subpolytopes=[])
         solution = None
 
         for ancestor in scipy_coverage_set:
@@ -97,41 +81,40 @@ def scipy_unordered_decomposition_hops(
 
             # impose the target constraints, which sit on "b"
             # (really on "c", but "b" has already been projected off)
-            backsolution_polytope = PolytopeData(convex_subpolytopes=[])
-            for cp in ancestor.convex_subpolytopes:
-                backsolution_polytope.convex_subpolytopes.append(
-                    ConvexPolytopeData(
-                        inequalities=[
-                            *cp.inequalities,
-                            *[[ineq[0], 0, 0, 0, ineq[1], ineq[2], ineq[3]]
-                              for ineq in target_polytope.convex_subpolytopes[0].inequalities]
-                        ],
-                        equalities=cp.equalities,
-                    )
+            backsolution_polytope.convex_subpolytopes += [
+                ConvexPolytopeData(
+                    inequalities=[
+                        [ineq[0] + sum(x * y for x, y in zip(ineq[4:], target)),
+                         ineq[1], ineq[2], ineq[3]]
+                        for ineq in cp.inequalities
+                    ],
+                    equalities=[
+                        [eq[0] + sum(x * y for x, y in zip(eq[4:], target)),
+                         eq[1], eq[2], eq[3]]
+                        for eq in cp.equalities
+                    ],
                 )
+                for cp in ancestor.convex_subpolytopes
+            ]
 
             # walk over the convex backsolution subpolytopes, try to find one
             # that's solvable
-            shuffle(backsolution_polytope.convex_subpolytopes)
-            for convex_subpolytope in backsolution_polytope.convex_subpolytopes:
-                solution = scipy_get_random_vertex(convex_subpolytope)
-                if solution.success:
-                    break
-                solution = None
+            try:
+                solution = manual_get_random_vertex(backsolution_polytope)
 
-            if solution is not None:
+                # a/k/a decomposition.push
+                decomposition.insert(
+                    0,
+                    (solution, ancestor.operations[-1], target)
+                )
+                # NOTE: using `exactly` here causes an infinite loop.
+                target = solution
+                working_operations = ancestor.operations[:-1]
                 break
+            except NoFeasibleSolutions:
+                raise NoBacksolution()
 
         if solution is None:
             raise NoBacksolution()
-
-        # a/k/a decomposition.push
-        decomposition.insert(
-            0,
-            (solution.x[:3], ancestor.operations[-1], solution.x[-3:])
-        )
-        # NOTE: using `exactly` here causes an infinite loop.
-        target_polytope = nearly(*solution.x[:3])
-        working_operations = ancestor.operations[:-1]
 
     return decomposition

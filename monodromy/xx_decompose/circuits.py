@@ -268,7 +268,10 @@ def xx_circuit_from_decomposition(
 
     canonical_coordinate_table = {
         operation.operations[0]: alcove_to_positive_canonical_coordinate(
-            *operation.convex_subpolytopes[0].vertices[0]
+            *[next(-eq[0] / eq[1+j]
+                   for eq in operation.convex_subpolytopes[0].equalities
+                   if eq[1+j] != 0)
+              for j in range(3)]
         )
         for operation in operations
     }

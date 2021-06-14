@@ -74,19 +74,30 @@ def optimize_over_polytope(
     )
 
 
-def has_element(polytope, point):
+def polyhedron_has_element(polytope, point):
     """
-    A standalone variant of Polytope.has_element.
+    A standalone variant of Polytope.has_element, specialized to the 3D case.
     """
-    return any([(all([-epsilon <= inequality[0] +
-                      sum(x * y for x, y in
-                          zip(point, inequality[1:]))
-                      for inequality in cp.inequalities]) and
-                 all([abs(equality[0] + sum(x * y for x, y in
-                                            zip(point, equality[1:])))
-                      <= epsilon
-                      for equality in cp.equalities]))
-                for cp in polytope.convex_subpolytopes])
+    for cp in polytope.convex_subpolytopes:
+        violated = False
+        for inequality in cp.inequalities:
+            value = inequality[0] + point[0] * inequality[1] + \
+                point[1] * inequality[2] + point[2] * inequality[3]
+            # this inequality has to be (near) positive
+            if -epsilon > value:
+                violated = True
+                break
+        if violated:
+            continue
+        for equality in cp.equalities:
+            value = equality[0] + point[0] * equality[1] + \
+                point[1] * equality[2] + point[2] * equality[3]
+            # this equality has to be (near) zero)
+            if epsilon < abs(value):
+                violated = True
+        if not violated:
+            return True
+    return False
 
 
 def scipy_get_random_vertex(
@@ -154,7 +165,7 @@ def manual_get_random_vertex(polytope: PolytopeData):
             b = np.array([x[0] for x in inequalities])
             try:
                 vertex = np.linalg.inv(-A) @ b
-                if has_element(polytope, vertex):
+                if polyhedron_has_element(polytope, vertex):
                     # vertices.append(vertex)
                     return vertex
             except np.linalg.LinAlgError:

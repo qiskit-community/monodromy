@@ -27,7 +27,7 @@ from typing import List
 from ..backend.backend_abc import NoFeasibleSolutions
 from .circuits import NoBacksolution
 from ..io.base import ConvexPolytopeData, PolytopeData, CircuitPolytopeData
-from .scipy import has_element, manual_get_random_vertex, nearly
+from .scipy import polyhedron_has_element, manual_get_random_vertex, nearly
 
 
 def scipy_unordered_decomposition_hops(
@@ -60,7 +60,7 @@ def scipy_unordered_decomposition_hops(
     # NOTE: In practice, this computation has already been done.
     best_cost = float("inf")
     for polytope in coverage_set:
-        if polytope.cost < best_cost and has_element(polytope, target):
+        if polytope.cost < best_cost and polyhedron_has_element(polytope, target):
             working_polytope = polytope
             best_cost = polytope.cost
 

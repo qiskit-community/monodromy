@@ -25,7 +25,7 @@ from ..coordinates import alcove_to_positive_canonical_coordinate, \
 from .defaults import get_zx_operations, default_data
 from ..io.inflate import filter_scipy_data
 from .paths import NoBacksolution, scipy_unordered_decomposition_hops
-from .scipy import has_element, nearly, optimize_over_polytope
+from .scipy import polyhedron_has_element, nearly, optimize_over_polytope
 from ..utilities import epsilon
 
 
@@ -118,8 +118,9 @@ class MonodromyZXDecomposer:
                 overall_best_operations = gate_polytope.operations
 
             # stash the first polytope we belong to
-            if overall_exact_cost is None and has_element(gate_polytope,
-                                                          target):
+            if overall_exact_cost is None and polyhedron_has_element(
+                    gate_polytope, target
+            ):
                 overall_exact_cost = gate_polytope.cost
                 overall_exact_operations = gate_polytope.operations
                 if not approximate:

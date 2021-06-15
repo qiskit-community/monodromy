@@ -66,14 +66,39 @@ class MonodromyZXDecomposer:
         """
         a0, b0, c0 = alcove_to_positive_canonical_coordinate(*target)
 
-        def internal_objective(array):
+        def objective(array):
             a, b, c = alcove_to_positive_canonical_coordinate(*array)
-
             return -1 / 20 * (4 + 16 * sqrt(
                 cos(a0 - a) ** 2 * cos(b0 - b) ** 2 * cos(c0 - c) ** 2 +
-                sin(a0 - a) ** 2 * sin(b0 - b) ** 2 * sin(c0 - c) ** 2))
+                sin(a0 - a) ** 2 * sin(b0 - b) ** 2 * sin(c0 - c) ** 2
+            ))
 
-        return internal_objective
+        def jacobian(array):
+            a, b, c = alcove_to_positive_canonical_coordinate(*array)
+
+            # squares
+            ca2, sa2 = cos(a0 - a) ** 2, sin(a0 - a) ** 2
+            cb2, sb2 = cos(b0 - b) ** 2, sin(b0 - b) ** 2
+            cc2, sc2 = cos(c0 - c) ** 2, sin(c0 - c) ** 2
+            # double angles
+            c2a, s2a = cos(2 * a0 - 2 * a), sin(2 * a0 - 2 * a)
+            c2b, s2b = cos(2 * b0 - 2 * b), sin(2 * b0 - 2 * b)
+            c2c, s2c = cos(2 * c0 - 2 * c), sin(2 * c0 - 2 * c)
+
+            # gradient in canonical coordinates
+            sqrt_sum = sqrt(ca2 * cb2 * cc2 + sa2 * sb2 * sc2)
+            da = -(c2b + c2c) * s2a / (5 * sqrt_sum)
+            db = -(c2a + c2c) * s2b / (5 * sqrt_sum)
+            dc = -(c2a + c2b) * s2c / (5 * sqrt_sum)
+
+            # gradient in monodromy coordinates
+            return np.pi / 2 * np.array([da + db, da + dc, db + dc])
+
+        return {
+            "objective": objective,
+            "jacobian": jacobian,
+            # "hessian": hessian,
+        }
 
     def _best_decomposition(self, target,
                             approximate=True,
@@ -102,8 +127,12 @@ class MonodromyZXDecomposer:
             best_point = [0, 0, 0]
 
             for convex_polytope in gate_polytope.convex_subpolytopes:
-                solution = optimize_over_polytope(self._build_objective(target),
-                                                  convex_polytope)
+                objective_dict = self._build_objective(target)
+                solution = optimize_over_polytope(
+                    objective_dict["objective"], convex_polytope,
+                    jacobian=objective_dict["jacobian"],
+                    # hessian=objective_dict["hessian"]
+                )
                 if solution.fun + 1 < best_distance:
                     best_distance = solution.fun + 1
                     best_point = solution.x
@@ -124,8 +153,7 @@ class MonodromyZXDecomposer:
                 overall_exact_cost = gate_polytope.cost
                 overall_exact_operations = gate_polytope.operations
                 if not approximate:
-                    return (
-                    target, overall_exact_cost, overall_exact_operations)
+                    return target, overall_exact_cost, overall_exact_operations
                 break
 
         if approximate:

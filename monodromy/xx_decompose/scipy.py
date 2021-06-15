@@ -7,6 +7,7 @@ Utilities for interacting with polytope data through scipy.
 from copy import copy
 from itertools import combinations
 from random import sample, shuffle
+from typing import Optional, Callable
 import warnings
 
 import numpy as np
@@ -33,7 +34,9 @@ def nearly(ax, ay, az, wiggle=epsilon):
 
 def optimize_over_polytope(
         fn,
-        convex_polytope: ConvexPolytopeData
+        convex_polytope: ConvexPolytopeData,
+        jacobian: Optional[Callable] = None,
+        hessian: Optional[Callable] = None,
 ) -> scipy.optimize.OptimizeResult:
     """
     Optimizes the function `fn`: array --> reals over `convex_polytope`.
@@ -48,9 +51,8 @@ def optimize_over_polytope(
                          for ineq in convex_polytope.inequalities])
         b_ub = np.array([float(ineq[0])
                          for ineq in convex_polytope.inequalities])
-        constraints.append(dict(
-            type='ineq',
-            fun=lambda x: A_ub @ x + b_ub
+        constraints.append(scipy.optimize.LinearConstraint(
+            A_ub, -b_ub, [np.inf] * b_ub.shape[0]  # trivial upper bound
         ))
 
     if 0 < len(convex_polytope.equalities):
@@ -58,19 +60,23 @@ def optimize_over_polytope(
         A_eq = np.array([[float(x) for x in eq[1:]]
                          for eq in convex_polytope.equalities])
         b_eq = np.array([float(eq[0]) for eq in convex_polytope.equalities])
-        constraints.append(dict(
-            type='ineq',
-            fun=lambda x: A_eq @ x + b_eq
-        ))
-        constraints.append(dict(
-            type='ineq',
-            fun=lambda x: -A_eq @ x - b_eq
+        constraints.append(scipy.optimize.LinearConstraint(
+            A_eq, -b_eq, b_eq
         ))
 
+    kwargs = {}
+    if jacobian is not None:
+        kwargs["jac"] = jacobian
+    if hessian is not None:
+        kwargs["hess"] = hessian
+
     return scipy.optimize.minimize(
+        # method='trust-constr',
         fun=fn,
         x0=np.array([1 / 4] * dimension),
-        constraints=constraints
+        constraints=constraints,
+        # options={'verbose': 3},
+        **kwargs
     )
 
 

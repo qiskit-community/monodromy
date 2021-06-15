@@ -1,3 +1,5 @@
+import qiskit
+
 from monodromy.xx_decompose.circuits import *
 from monodromy.xx_decompose.defaults import *
 from monodromy.xx_decompose.precalculate import calculate_unordered_scipy_coverage_set

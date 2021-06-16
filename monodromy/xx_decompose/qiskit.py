@@ -181,7 +181,7 @@ class MonodromyZXDecomposer:
         """
         circ_0 = QuantumCircuit(1)
         circ_1 = QuantumCircuit(1)
-        output_circuit = QuantumCircuit(2)
+        output_circuit = QuantumCircuit(2, global_phase=circuit.global_phase)
 
         for gate, q, _ in circuit:
             if q == [circuit.qregs[0][0]]:

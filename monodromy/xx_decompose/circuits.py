@@ -23,6 +23,7 @@ from functools import reduce
 import math
 import numpy as np
 from typing import List
+import warnings
 
 import qiskit
 from qiskit.circuit.library import RXGate, RYGate, RZGate
@@ -100,7 +101,9 @@ def safe_arccos(numerator, denominator):
             abs(numerator + denominator) < threshold:
         return np.pi
     else:
-        return np.arccos(numerator / denominator)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=RuntimeWarning)
+            return np.arccos(numerator / denominator)
 
 
 def decompose_xxyy_into_xxyy_xx(a_target, b_target, a1, b1, a2):

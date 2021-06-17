@@ -6,6 +6,7 @@ Staging ground for a QISKit Terra compilation pass which emits ZX circuits.
 
 from fractions import Fraction
 from math import cos, sin, sqrt
+from operator import itemgetter
 
 import numpy as np
 
@@ -21,11 +22,12 @@ from qiskit.quantum_info.synthesis.two_qubit_decompose import \
 from .circuits import apply_reflection, apply_shift, \
     xx_circuit_from_decomposition
 from ..coordinates import alcove_to_positive_canonical_coordinate, \
-    unitary_to_alcove_coordinate
+    fidelity_distance, unitary_to_alcove_coordinate
 from .defaults import get_zx_operations, default_data
 from ..io.inflate import filter_scipy_data
 from .paths import NoBacksolution, scipy_unordered_decomposition_hops
-from .scipy import polyhedron_has_element, nearly, optimize_over_polytope
+from .scipy import nearest_point_polyhedron, polyhedron_has_element, \
+    optimize_over_polytope
 from ..utilities import epsilon
 
 
@@ -47,17 +49,54 @@ class MonodromyZXDecomposer:
             template.  Use `calculate_scipy_coverage_set` to generate.
         euler_basis (str): Basis string provided to OneQubitEulerDecomposer for
             1Q synthesis.  Defaults to "U3".
+        top_k (int): Retain the top k Euclidean solutions when searching for
+            approximations.  Zero means retain all the Euclidean solutions;
+            negative values cause undefined behavior.
     """
 
     def __init__(self, operations, coverage_set, precomputed_backsolutions,
-                 euler_basis="U3"):
+                 euler_basis="U3", top_k=4):
         self.operations, self.coverage_set, self.precomputed_backsolutions = \
             operations, coverage_set, precomputed_backsolutions
 
         self._decomposer1q = OneQubitEulerDecomposer(euler_basis)
-        self._optimize1q = Optimize1qGatesDecomposition(euler_basis)
-
         self.gate = RZXGate(np.pi/2)
+        self.top_k = top_k
+
+    def _rank_euclidean_polytopes(self, target):
+        """
+        Returns the closest polytopes to `target` from the coverage set, in
+        anti-proximity order: the nearest polytope is last.
+
+        NOTE: `target` is to be provided in monodromy coordinates.
+        NOTE: "Proximity" has a funny meaning.  In each polytope, we find the
+            nearest point in Euclidean distance, then sort the polytopes by the
+            trace distances from those points to the target (+ polytope cost).
+        """
+        polytope_costs = []
+        for gate_polytope in self.coverage_set:
+            candidate_point = nearest_point_polyhedron(target, gate_polytope)
+            candidate_cost = 1 - fidelity_distance(target, candidate_point)
+            polytope_costs.append(
+                (gate_polytope, candidate_cost + gate_polytope.cost)
+            )
+            if polyhedron_has_element(gate_polytope, target):
+                break
+
+        polytope_costs = sorted(polytope_costs, key=lambda x: x[1],
+                                reverse=True)
+
+        return [x[0] for x in polytope_costs]
+
+    def _first_containing_polytope(self, target):
+        """
+        Finds the cheapest coverage polytope to which the `target` belongs.
+
+        NOTE: `target` is to be provided in monodromy coordinates.
+        """
+        for gate_polytope in self.coverage_set:
+            if polyhedron_has_element(gate_polytope, target):
+                return gate_polytope
 
     @staticmethod
     def _build_objective(target):
@@ -67,11 +106,7 @@ class MonodromyZXDecomposer:
         a0, b0, c0 = alcove_to_positive_canonical_coordinate(*target)
 
         def objective(array):
-            a, b, c = alcove_to_positive_canonical_coordinate(*array)
-            return -1 / 20 * (4 + 16 * sqrt(
-                cos(a0 - a) ** 2 * cos(b0 - b) ** 2 * cos(c0 - c) ** 2 +
-                sin(a0 - a) ** 2 * sin(b0 - b) ** 2 * sin(c0 - c) ** 2
-            ))
+            return -fidelity_distance(target, array)
 
         def jacobian(array):
             a, b, c = alcove_to_positive_canonical_coordinate(*array)
@@ -100,80 +135,67 @@ class MonodromyZXDecomposer:
             # "hessian": hessian,
         }
 
-    def _best_decomposition(self, target,
-                            approximate=True,
-                            chatty=False):  # -> (coord, cost, op'ns)
+    def _best_decomposition(self, target):
         """
-        Searches over different circuit templates for the least coatly
-        embodiment of the canonical coordinate `target`.  If `approximate` is
-        flagged, this permits approximate solutions whose trace distance is less
-        than the cost of using more gates to model the target exactly.
+        Searches over different circuit templates for the least costly
+        embodiment of the canonical coordinate `target`.  Returns a dictionary
+        with keys "cost", "point", and "operations".
 
         NOTE: Expects `target` to be supplied in monodromy coordinates.
         """
-        if chatty:
-            print(f"Aiming for {target} (monodromy).")
 
-        overall_best_cost = 1
-        overall_exact_cost = None
-        overall_best_point = [0, 0, 0]
-        overall_best_operations = []
+        ranked_polytopes = self._rank_euclidean_polytopes(target)
+        ranked_polytopes = ranked_polytopes[-self.top_k:]
 
-        for gate_polytope in self.coverage_set:
-            if chatty:
-                print(f"Working on {'.'.join(gate_polytope.operations)}: ",
-                      end="")
-            best_distance = 1
-            best_point = [0, 0, 0]
+        best_cost = 0.8
+        best_point = [0, 0, 0]
+        best_polytope = None
+        objective, jacobian = itemgetter("objective", "jacobian")(
+            self._build_objective(target)
+        )
 
-            for convex_polytope in gate_polytope.convex_subpolytopes:
-                objective_dict = self._build_objective(target)
-                solution = optimize_over_polytope(
-                    objective_dict["objective"], convex_polytope,
-                    jacobian=objective_dict["jacobian"],
-                    # hessian=objective_dict["hessian"]
-                )
-                if solution.fun + 1 < best_distance:
-                    best_distance = solution.fun + 1
-                    best_point = solution.x
-
-            if chatty:
-                print(f"{gate_polytope.cost} + {best_distance} = "
-                      f"{gate_polytope.cost + best_distance}")
-
-            if gate_polytope.cost + best_distance < overall_best_cost:
-                overall_best_cost = gate_polytope.cost + best_distance
-                overall_best_point = best_point
-                overall_best_operations = gate_polytope.operations
-
-            # stash the first polytope we belong to
-            if overall_exact_cost is None and polyhedron_has_element(
-                    gate_polytope, target
-            ):
-                overall_exact_cost = gate_polytope.cost
-                overall_exact_operations = gate_polytope.operations
-                if not approximate:
-                    return target, overall_exact_cost, overall_exact_operations
+        for gate_polytope, _ in sorted([(p, p.cost) for p in ranked_polytopes],
+                                       key=lambda x: x[1]):
+            # short-circuit in the case of exact membership
+            if polyhedron_has_element(gate_polytope, target):
+                if gate_polytope.cost < best_cost:
+                    best_cost, best_point, best_polytope = \
+                        gate_polytope.cost, target, gate_polytope
                 break
 
-        if approximate:
-            return overall_best_point, overall_best_cost, overall_best_operations
-        else:
+            # otherwise, numerically optimize the trace distance
+            for convex_polytope in gate_polytope.convex_subpolytopes:
+                solution = optimize_over_polytope(
+                    objective, convex_polytope,
+                    jacobian=jacobian,
+                    # hessian=objective_dict["hessian"]
+                )
+
+                if solution.fun + 1 + gate_polytope.cost < best_cost:
+                    best_cost = solution.fun + 1 + gate_polytope.cost
+                    best_point = solution.x
+                    best_polytope = gate_polytope
+
+        if best_polytope is None:
             raise ValueError("Failed to find a match.")
 
-    def num_basis_gates(self, unitary, approximate=True, chatty=False):
+        return {
+            "point": best_point,
+            "cost": best_cost,
+            "operations": best_polytope.operations
+        }
+
+    def num_basis_gates(self, unitary):
         """
         Counts the number of gates that would be emitted during re-synthesis.
 
-        Used by ConsolidateBlocks.
+        NOTE: Used by ConsolidateBlocks.
         """
         target = unitary_to_alcove_coordinate(unitary)[:3]
-        _, _, overall_best_operations = \
-            self._best_decomposition(target,
-                                     approximate=approximate,
-                                     chatty=chatty)
-        return len(overall_best_operations)
+        best_polytope = self._rank_euclidean_polytopes(target)[-1]
+        return len(best_polytope.operations)
 
+    # TODO: remit this to `optimize_1q_decomposition.py` in qiskit
     def decompose_1q(self, circuit):
         """
         Gather the one-qubit substrings in a two-qubit circuit and apply the
@@ -214,15 +236,16 @@ class MonodromyZXDecomposer:
               at initialization time.
         """
         target = unitary_to_alcove_coordinate(u)[:3]
-        overall_best_point, overall_best_cost, overall_best_operations = \
-            self._best_decomposition(target, approximate=approximate, chatty=chatty)
+        best_point, best_cost, best_operations = \
+            itemgetter("point", "cost", "operations")(
+                self._best_decomposition(target)
+            )
 
         if chatty:
-            print(f"Overall best: {overall_best_point} hits "
-                  f"{overall_best_cost} via "
-                  f"{'.'.join(overall_best_operations)}")
+            print(f"Overall best: {best_point} hits {best_cost} via "
+                  f"{'.'.join(best_operations)}")
             print(f"In canonical coordinates: "
-                  f"{alcove_to_positive_canonical_coordinate(*overall_best_point)} "
+                  f"{alcove_to_positive_canonical_coordinate(*best_point)} "
                   f"from {alcove_to_positive_canonical_coordinate(*target)}")
 
         circuit = None
@@ -231,7 +254,7 @@ class MonodromyZXDecomposer:
                 decomposition = scipy_unordered_decomposition_hops(
                     self.coverage_set,
                     self.precomputed_backsolutions,
-                    overall_best_point
+                    best_point
                 )
 
                 if chatty:
@@ -317,18 +340,19 @@ class MonodromyZXDecomposer:
 def monodromy_decomposer_from_approximation_degree(
         euler_basis="U3",
         approximation_degree=1.0,
+        flat_rate=1e-10,
 ):
-    operations = get_zx_operations({
-        # This is kind of gross.
-        # * 1.e-10 is a small, below-hardware-granularity threshold that permits
-        #   the sorting mechanism in inflate_scipy_data to still function.
-        # * 12/5 * 1/k means that CX^1/3 is taken to have 0.8 error, which is
-        #   the maximum amount possible with gate average fidelity.
-        # * (1 - approximation_degree) interpolates between minimum assumed
-        #   error (80% at 1.0) and maximum assumed error (0% at 0.0).
-        Fraction(1, k): 1.e-10 + 12 / 5 * 1 / k * \
-                                (1.e-10 + (1 - 1.e-10) * (1 - approximation_degree))
+    """
+    `euler_basis`: Basis into which to decompose single-qubit gates.
+    `approximation_degree`: Linear fidelity rate.  The cost of a full ZX gate
+        is taken to be (1 - approximation_degree) + flat_rate.
+    `flat_rate`: Affine offset in a linear error model. Undefined behavior when
+        set to zero; OK to use a small value like 1e-10.
+    """
+    cost_table = {
+        Fraction(1, k): flat_rate + 1 / k * (1 - approximation_degree)
         for k in [1, 2, 3]
-    })
+    }
+    operations = get_zx_operations(cost_table)
     inflated_data = filter_scipy_data(operations, **default_data, chatty=False)
     return MonodromyZXDecomposer(**inflated_data, euler_basis=euler_basis)

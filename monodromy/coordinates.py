@@ -36,6 +36,7 @@ NOTE: Working in pu_4 rather than su_4 adds one extra inequality, corresponding
 
 from copy import copy
 from functools import reduce
+import math
 from typing import List, Optional
 
 import numpy as np
@@ -213,3 +214,18 @@ def monodromy_to_positive_canonical_polytope(
     canonical_polytope = copy(monodromy_polytope)
     canonical_polytope.convex_subpolytopes = canonical_convex_subpolytopes
     return canonical_polytope
+
+
+def fidelity_distance(p, q):
+    """
+    Computes the fidelity distance between two points p, q expressed in
+    monodromy coordinates.
+    """
+
+    a, b, c = alcove_to_positive_canonical_coordinate(*p)
+    d, e, f = alcove_to_positive_canonical_coordinate(*q)
+
+    return 1 / 20 * (4 + 16 * (
+        math.cos(a - d) ** 2 * math.cos(b - e) ** 2 * math.cos(c - f) ** 2 +
+        math.sin(a - d) ** 2 * math.sin(b - e) ** 2 * math.sin(c - f) ** 2
+    ))

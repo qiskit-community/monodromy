@@ -43,9 +43,20 @@ def get_zx_operations(strengths: Dict[Fraction, float]) \
         label = f"rzx(pi/2 * {strength})"
 
         cx_circuit = qiskit.QuantumCircuit(q)
-        cx_circuit.h(q[0])
-        cx_circuit.rzx(np.pi/2 * strength, q[0], q[1])
-        cx_circuit.h(q[0])
+        
+        if strength == 1:
+            cx_circuit.h(q[0])
+            cx_circuit.cx(q[0], q[1])
+            cx_circuit.h(q[1])
+            cx_circuit.rz(np.pi/2, q[0])
+            cx_circuit.rz(np.pi/2, q[1])
+            cx_circuit.h(q[1])
+            cx_circuit.h(q[0])
+            cx_circuit.global_phase += np.pi/4
+        else:
+            cx_circuit.h(q[0])
+            cx_circuit.rzx(np.pi/2 * strength, q[0], q[1])
+            cx_circuit.h(q[0])
 
         operations.append(OperationPolytope(
             operations=[label],

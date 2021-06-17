@@ -405,5 +405,5 @@ def xx_circuit_from_decomposition(
         output_circuit += permute_target_for_overlap
         qc = output_circuit
 
-    qc.global_phase = -np.log(global_phase).imag
+    qc.global_phase += -np.log(global_phase).imag
     return qc

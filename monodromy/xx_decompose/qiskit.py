@@ -168,7 +168,7 @@ class MonodromyZXDecomposer:
                 solution = optimize_over_polytope(
                     objective, convex_polytope,
                     jacobian=jacobian,
-                    # hessian=objective_dict["hessian"]
+                    # hessian=hessian,
                 )
 
                 if solution.fun + 1 + gate_polytope.cost < best_cost:

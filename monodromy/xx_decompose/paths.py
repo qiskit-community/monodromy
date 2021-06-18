@@ -22,17 +22,14 @@ NOTE: The routines in this file can fail for numerical reasons, and so they are
 """
 
 from collections import Counter
-from operator import itemgetter
-from typing import List
 
-from ..backend.backend_abc import NoFeasibleSolutions
-from .circuits import NoBacksolution
-from ..io.base import ConvexPolytopeData, PolytopeData, CircuitPolytopeData
-from .scipy import polyhedron_has_element, manual_get_random_vertex
+from ..exceptions import NoBacksolution, NoFeasibleSolutions
+from ..io.base import ConvexPolytopeData, PolytopeData
+from .scipy import manual_get_random_vertex
 
 
 def single_unordered_decomposition_hop(
-        target, working_operations, scipy_coverage_set
+    target, working_operations, scipy_coverage_set
 ):
     """
     Produces a single inverse step in a right-angled path.  The target of the
@@ -45,6 +42,9 @@ def single_unordered_decomposition_hop(
     which respectively are: a triple (source, operation, target) describing the
     single step; the source coordinate of the step; and the remaining set of
     operations yet to be stripped off.
+
+    NOTE: Operates with the assumption that gates within the circuit
+          decomposition may be freely permuted.
     """
     backsolution_polytope = PolytopeData(convex_subpolytopes=[])
     for ancestor in scipy_coverage_set:
@@ -84,55 +84,3 @@ def single_unordered_decomposition_hop(
             pass
 
     raise NoBacksolution()
-
-
-def scipy_unordered_decomposition_hops(
-        coverage_set: List[CircuitPolytopeData],
-        scipy_coverage_set: List[CircuitPolytopeData],
-        target: List  # raw target tuple
-):
-    """
-    Fixing a `coverage_set` and a `scipy_coverage_set`, finds a minimal
-    decomposition for a canonical interaction in `target_polytope` into a
-    sequence of operations linking the polytopes in the coverage sets, together
-    with specific intermediate canonical points linked by them.
-
-    Returns a list of tuples of shape (source vertex, operation, target vertex),
-    so that each target vertex is accessible from its source vertex by
-    application of the operation, each target vertex matches its next source
-    vertex, the original source vertex corresponds to the identity, and the
-    last target lies in `target_polytope`.
-
-    NOTE: `scipy_coverage_set` is extracted from `coverage_set` using
-          `calculate_scipy_coverage_set` above.
-
-    NOTE: Operates with the assumption that gates within the circuit
-          decomposition may be freely permuted.
-    """
-    decomposition = []  # retval
-    working_polytope = None
-
-    # NOTE: In practice, this computation has already been done.
-    best_cost = float("inf")
-    for polytope in coverage_set:
-        if polytope.cost < best_cost and polyhedron_has_element(polytope, target):
-            working_polytope = polytope
-            best_cost = polytope.cost
-
-    if working_polytope is None:
-        raise ValueError(f"{target} not contained in coverage set.")
-
-    operations_remaining = working_polytope.operations
-
-    # if this polytope corresponds to the empty operation, we're done.
-    while 0 < len(operations_remaining):
-        target, operations_remaining, hop = \
-            itemgetter("ancestor", "operations_remaining", "hop")(
-                single_unordered_decomposition_hop(
-                    target, operations_remaining, scipy_coverage_set
-                )
-            )
-        # a/k/a decomposition.push
-        decomposition.insert(0, hop)
-
-    return decomposition

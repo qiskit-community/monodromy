@@ -5,13 +5,12 @@ Tools for building optimal circuits out of XX interactions.
 
 Inputs:
  + A set of native operations, described as `OperationPolytope`s.
- + A right-angled path, computed using the methods in `xx_decompose/path.py`.
+ + A right-angled path, computed using the methods in `xx_decompose/paths.py`.
 
 Output:
  + A circuit which implements the target operation (expressed exactly as the
    exponential of `a XX + b YY + c ZZ`) using the native operations and local
    gates.
-
 
 These routines make a variety of assumptions, not yet proven:
  + CircuitPolytopes for XX interactions are permutation invariant.
@@ -23,7 +22,6 @@ from functools import reduce
 import math
 import numpy as np
 from operator import itemgetter
-from typing import List
 import warnings
 
 import qiskit
@@ -32,19 +30,12 @@ import qiskit.quantum_info
 
 from ..coordinates import alcove_to_positive_canonical_coordinate
 from ..coverage import CircuitPolytope
+from ..exceptions import NoBacksolution
 from ..io.base import OperationPolytopeData
+from .paths import single_unordered_decomposition_hop
+from .scipy import polyhedron_has_element
 from ..static.matrices import canonical_matrix, rz_matrix
 from ..utilities import epsilon
-
-
-class NoBacksolution(Exception):
-    """
-    Signaled when the circuit backsolver can't find a suitable preimage point.
-
-    Conjectured to be probabilistically meaningless: should be fine to re-run
-    the call after catching this error.
-    """
-    pass
 
 
 @dataclass
@@ -326,7 +317,6 @@ def xx_circuit_step(
             break
 
     if permute_source_for_overlap is None:
-        print("Raising NoBacksolution.")
         raise NoBacksolution()
 
     prefix_circuit, affix_circuit = \
@@ -372,23 +362,21 @@ def xx_circuit_step(
     }
 
 
-def xx_circuit_from_decomposition(
-        decomposition,
-        operations: List[OperationPolytopeData]
-) -> qiskit.QuantumCircuit:
+def canonical_xx_circuit(
+        target, coverage_set, precomputed_backsolutions, operations
+):
     """
-    Extracts a circuit, with interactions drawn from `operations`, based on a
-    decomposition produced by `decomposition_hops`.
-
-    Returns a QISKit circuit modeling the decomposed interaction.
+    Assembles a QISKit circuit from XX-type interactions, as enumerated in
+    `operations`, which emulates the canonical gate at monodromy coordinates
+    `target`.  `coverage_set` and `precomputed_backsolutions` are calculated
+    as in `defaults.py`.
     """
-    qc = qiskit.QuantumCircuit(2)
 
     canonical_coordinate_table = {
         operation.operations[0]: alcove_to_positive_canonical_coordinate(
-            *[next(-eq[0] / eq[1+j]
+            *[next(-eq[0] / eq[1 + j]
                    for eq in operation.convex_subpolytopes[0].equalities
-                   if eq[1+j] != 0)
+                   if eq[1 + j] != 0)
               for j in range(3)]
         )
         for operation in operations
@@ -403,14 +391,59 @@ def xx_circuit_from_decomposition(
         for operation in operations
     }
 
-    # empty decompositions are easy!
-    if 0 == len(decomposition):
-        return qc
+    # find outermost polytope.
+    # NOTE: In practice, this computation has already been done.
+    target_polytope = None
+    best_cost = float("inf")
+    for polytope in coverage_set:
+        if polytope.cost < best_cost and polyhedron_has_element(
+                polytope, target):
+            target_polytope = polytope
+            best_cost = polytope.cost
 
-    # the first canonical gate is pretty easy!
-    if decomposition[0][2][0] <= 1/4:
-        qc.compose(
-            canonical_gate_table[decomposition[0][1]],
+    if target_polytope is None:
+        raise ValueError(f"{target} not contained in coverage set.")
+
+    operations_remaining = target_polytope.operations
+
+    # empty decompositions are easy!
+    if 0 == len(operations_remaining):
+        return qiskit.QuantumCircuit(2)
+
+    # assemble the prefix / affix circuits
+    prefix_circuit, affix_circuit = \
+        qiskit.QuantumCircuit(2), qiskit.QuantumCircuit(2)
+    while 1 < len(operations_remaining):
+        try:
+            next_target, next_operations_remaining, hop = \
+                itemgetter("ancestor", "operations_remaining", "hop")(
+                    single_unordered_decomposition_hop(
+                        target, operations_remaining, precomputed_backsolutions
+                    )
+                )
+
+            preceding_prefix_circuit, preceding_affix_circuit = \
+                itemgetter("prefix_circuit", "affix_circuit")(xx_circuit_step(
+                    *hop,
+                    canonical_coordinate_table,
+                    canonical_gate_table
+                ))
+
+            prefix_circuit.compose(preceding_prefix_circuit, inplace=True)
+            affix_circuit.compose(preceding_affix_circuit, inplace=True,
+                                  front=True)
+
+            target = next_target
+            operations_remaining = next_operations_remaining
+        except NoBacksolution:
+            pass
+
+    circuit = prefix_circuit
+
+    # lastly, deal with the "leading" gate.
+    if target[0] <= 1 / 4:
+        circuit.compose(
+            canonical_gate_table[operations_remaining[0]],
             inplace=True
         )
     else:
@@ -419,28 +452,14 @@ def xx_circuit_from_decomposition(
         _, source_shift, shift_phase_shift = \
             apply_shift("X shift", [0, 0, 0])
 
-        qc += source_reflection
-        qc.compose(canonical_gate_table[decomposition[0][1]], inplace=True)
-        qc += source_reflection.inverse()
-        qc += source_shift
-        qc.global_phase += -np.log(shift_phase_shift).imag
-        qc.global_phase += -np.log(reflection_phase_shift).imag
+        circuit += source_reflection
+        circuit.compose(canonical_gate_table[operations_remaining[0]],
+                        inplace=True)
+        circuit += source_reflection.inverse()
+        circuit += source_shift
+        circuit.global_phase += -np.log(shift_phase_shift).imag
+        circuit.global_phase += -np.log(reflection_phase_shift).imag
 
-    # from here, we have to work.
-    for source_monodromy_coord, operation, target_monodromy_coord \
-            in decomposition[1:]:
-        prefix_circuit, affix_circuit = \
-            itemgetter("prefix_circuit", "affix_circuit")(
-                xx_circuit_step(
-                    source_monodromy_coord, operation, target_monodromy_coord,
-                    canonical_coordinate_table,
-                    canonical_gate_table
-                )
-            )
-        assembled_circuit = qiskit.QuantumCircuit(2)
-        assembled_circuit.compose(prefix_circuit, inplace=True)
-        assembled_circuit.compose(qc, inplace=True)
-        assembled_circuit.compose(affix_circuit, inplace=True)
-        qc = assembled_circuit
+    circuit.compose(affix_circuit, inplace=True)
 
-    return qc
+    return circuit

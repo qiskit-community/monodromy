@@ -15,7 +15,8 @@ from os import getenv
 from subprocess import Popen, PIPE
 from typing import List
 
-from .backend_abc import Backend, NoFeasibleSolutions
+from .backend_abc import Backend
+from ..exceptions import NoFeasibleSolutions
 from ..polytopes import ConvexPolytope, PolytopeVolume
 from ..utilities import lcm
 

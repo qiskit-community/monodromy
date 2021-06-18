@@ -1,7 +1,7 @@
 """
 monodromy/xx_decompose/scipy.py
 
-Utilities for interacting with polytope data through scipy.
+Utilities for interacting with polytope data through scipy / by hand.
 """
 
 from copy import copy
@@ -14,7 +14,7 @@ import warnings
 import numpy as np
 import scipy.optimize
 
-from ..backend.backend_abc import NoFeasibleSolutions
+from ..exceptions import NoFeasibleSolutions
 from ..io.base import ConvexPolytopeData, PolytopeData
 from ..utilities import epsilon
 

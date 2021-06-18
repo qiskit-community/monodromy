@@ -7,11 +7,6 @@ A generic backend specification for polytope computations.
 from abc import ABC, abstractmethod
 
 
-class NoFeasibleSolutions(Exception):
-    """Emitted when reducing a convex polytope with no solutions."""
-    pass
-
-
 class Backend(ABC):
     """
     Generic backend interface for polytope procedures.

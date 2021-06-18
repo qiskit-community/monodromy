@@ -10,6 +10,7 @@ from fractions import Fraction
 from typing import List, Optional
 
 import monodromy.backend
+from monodromy.exceptions import NoFeasibleSolutions
 from monodromy.io.base import ConvexPolytopeData, PolytopeData
 from monodromy.volume import alternating_sum
 from monodromy.utilities import clear_memoization, epsilon, memoized_property
@@ -60,7 +61,7 @@ class ConvexPolytope(ConvexPolytopeData):
         """
         try:
             return monodromy.backend.backend.volume(self)
-        except monodromy.backend.backend_abc.NoFeasibleSolutions:
+        except NoFeasibleSolutions:
             return PolytopeVolume(dimension=0, volume=Fraction(0))
 
     @memoized_property
@@ -70,7 +71,7 @@ class ConvexPolytope(ConvexPolytopeData):
         """
         try:
             return monodromy.backend.backend.vertices(self)
-        except monodromy.backend.backend_abc.NoFeasibleSolutions:
+        except NoFeasibleSolutions:
             return []
 
     @memoized_property
@@ -208,7 +209,7 @@ class Polytope(PolytopeData):
                 independent_polytopes.append(Polytope(
                     convex_subpolytopes=[convex_subpolytope.reduce()]
                 ))
-            except monodromy.backend.NoFeasibleSolutions:
+            except NoFeasibleSolutions:
                 pass
 
         independent_polytopes = trim_polytope_set(independent_polytopes)

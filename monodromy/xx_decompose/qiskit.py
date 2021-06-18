@@ -10,22 +10,20 @@ from operator import itemgetter
 
 import numpy as np
 
-from qiskit import QuantumCircuit, QuantumRegister
+from qiskit import QuantumCircuit
 from qiskit.circuit.library import RZXGate
 from qiskit.extensions import UnitaryGate
-from qiskit.transpiler.passes.optimization import Optimize1qGatesDecomposition
 from qiskit.quantum_info.operators import Operator
 from qiskit.quantum_info.synthesis import OneQubitEulerDecomposer
 from qiskit.quantum_info.synthesis.two_qubit_decompose import \
     TwoQubitWeylDecomposition
 
-from .circuits import apply_reflection, apply_shift, \
-    xx_circuit_from_decomposition
+from .circuits import apply_reflection, apply_shift, canonical_xx_circuit
 from ..coordinates import alcove_to_positive_canonical_coordinate, \
     fidelity_distance, unitary_to_alcove_coordinate
 from .defaults import get_zx_operations, default_data
+from ..exceptions import NoBacksolution
 from ..io.inflate import filter_scipy_data
-from .paths import NoBacksolution, scipy_unordered_decomposition_hops
 from .scipy import nearest_point_polyhedron, polyhedron_has_element, \
     optimize_over_polytope
 from ..utilities import epsilon
@@ -248,37 +246,10 @@ class MonodromyZXDecomposer:
                   f"{alcove_to_positive_canonical_coordinate(*best_point)} "
                   f"from {alcove_to_positive_canonical_coordinate(*target)}")
 
-        circuit = None
-        while circuit is None:
-            try:
-                decomposition = scipy_unordered_decomposition_hops(
-                    self.coverage_set,
-                    self.precomputed_backsolutions,
-                    best_point
-                )
-
-                if chatty:
-                    print("Trying decomposition:")
-                    for input_alcove_coord, operation, output_alcove_coord \
-                            in decomposition:
-                        line = "("
-                        line += " π/4, ".join([f"{float(x / (np.pi / 4)):+.3f}"
-                                               for x in alcove_to_positive_canonical_coordinate(*input_alcove_coord)])
-                        line += f" π/4) --{operation:-<7}-> ("
-                        line += " π/4, ".join([f"{float(x / (np.pi / 4)):+.3f}"
-                                               for x in alcove_to_positive_canonical_coordinate(*output_alcove_coord)])
-                        line += " π/4)"
-                        print(line)
-
-                circuit = xx_circuit_from_decomposition(
-                    decomposition,
-                    self.operations
-                )
-            except NoBacksolution:
-                if chatty:
-                    print(f"Nerts!")
-                circuit = None
-                pass
+        circuit = canonical_xx_circuit(
+            best_point,
+            self.coverage_set, self.precomputed_backsolutions, self.operations
+        )
 
         weyl_decomposition = TwoQubitWeylDecomposition(u)
 
@@ -326,7 +297,6 @@ class MonodromyZXDecomposer:
                         print(qiskit.quantum_info.Operator(circuit).data)
                         print("====")
 
-        q = circuit.qubits[0].register
         circ = QuantumCircuit(2, global_phase=weyl_decomposition.global_phase)
 
         circ.append(UnitaryGate(weyl_decomposition.K2r), [0])

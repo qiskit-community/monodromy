@@ -281,7 +281,6 @@ class MonodromyZXDecomposer:
                 pass
 
         weyl_decomposition = TwoQubitWeylDecomposition(u)
-        q = QuantumRegister(2)
 
         if chatty:
             print([weyl_decomposition.a,
@@ -293,18 +292,20 @@ class MonodromyZXDecomposer:
         if abs(weyl_decomposition.c -
                alcove_to_positive_canonical_coordinate(*target)[2]) < epsilon:
             # if they're the same...
-            corrected_circuit = QuantumCircuit(q)
+            corrected_circuit = QuantumCircuit(2)
             corrected_circuit.rz(np.pi, [0])
             corrected_circuit.compose(circuit, [0, 1], inplace=True)
             corrected_circuit.rz(-np.pi, [0])
             circuit = corrected_circuit
         else:
             # else they're in the "positive" scissors part...
-            corrected_circuit = QuantumCircuit(q)
+            corrected_circuit = QuantumCircuit(2)
             _, source_reflection, reflection_phase_shift = apply_reflection(
-                "reflect XX, ZZ", [0, 0, 0], q)
-            _, source_shift, shift_phase_shift = apply_shift("X shift",
-                                                             [0, 0, 0], q)
+                "reflect XX, ZZ", [0, 0, 0]
+            )
+            _, source_shift, shift_phase_shift = apply_shift(
+                "X shift", [0, 0, 0]
+            )
 
             corrected_circuit.compose(source_reflection.inverse(), inplace=True)
             corrected_circuit.rz(np.pi, [0])
@@ -326,7 +327,7 @@ class MonodromyZXDecomposer:
                         print("====")
 
         q = circuit.qubits[0].register
-        circ = QuantumCircuit(q, global_phase=weyl_decomposition.global_phase)
+        circ = QuantumCircuit(2, global_phase=weyl_decomposition.global_phase)
 
         circ.append(UnitaryGate(weyl_decomposition.K2r), [0])
         circ.append(UnitaryGate(weyl_decomposition.K2l), [1])

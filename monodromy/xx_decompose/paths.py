@@ -22,12 +22,68 @@ NOTE: The routines in this file can fail for numerical reasons, and so they are
 """
 
 from collections import Counter
+from operator import itemgetter
 from typing import List
 
 from ..backend.backend_abc import NoFeasibleSolutions
 from .circuits import NoBacksolution
 from ..io.base import ConvexPolytopeData, PolytopeData, CircuitPolytopeData
-from .scipy import polyhedron_has_element, manual_get_random_vertex, nearly
+from .scipy import polyhedron_has_element, manual_get_random_vertex
+
+
+def single_unordered_decomposition_hop(
+        target, working_operations, scipy_coverage_set
+):
+    """
+    Produces a single inverse step in a right-angled path.  The target of the
+    step is `target`, expressed in monodromy coordinates, and which belongs to
+    to the circuit type consisting of XX-type operations enumerated in
+    `working_operations`.  The step is taken along one such operation in
+    `working_operations`, and the source of the step belongs
+
+    Returns a dictionary keyed on "hop", "ancestor", and "operations_remaining",
+    which respectively are: a triple (source, operation, target) describing the
+    single step; the source coordinate of the step; and the remaining set of
+    operations yet to be stripped off.
+    """
+    backsolution_polytope = PolytopeData(convex_subpolytopes=[])
+    for ancestor in scipy_coverage_set:
+        # check that this is actually an ancestor
+        if Counter(ancestor.operations) != Counter(working_operations):
+            continue
+
+        # impose the target constraints, which sit on "b"
+        # (really on "c", but "b" has already been projected off)
+        backsolution_polytope.convex_subpolytopes += [
+            ConvexPolytopeData(
+                inequalities=[
+                    [ineq[0] + sum(x * y for x, y in zip(ineq[4:], target)),
+                     ineq[1], ineq[2], ineq[3]]
+                    for ineq in cp.inequalities
+                ],
+                equalities=[
+                    [eq[0] + sum(x * y for x, y in zip(eq[4:], target)),
+                     eq[1], eq[2], eq[3]]
+                    for eq in cp.equalities
+                ],
+            )
+            for cp in ancestor.convex_subpolytopes
+        ]
+
+        # walk over the convex backsolution subpolytopes, try to find one
+        # that's solvable
+        try:
+            solution = manual_get_random_vertex(backsolution_polytope)
+
+            return {
+                "hop": (solution, ancestor.operations[-1], target),
+                "ancestor": solution,
+                "operations_remaining": ancestor.operations[:-1]
+            }
+        except NoFeasibleSolutions:
+            pass
+
+    raise NoBacksolution()
 
 
 def scipy_unordered_decomposition_hops(
@@ -56,7 +112,6 @@ def scipy_unordered_decomposition_hops(
     decomposition = []  # retval
     working_polytope = None
 
-    # NOTE: if `target_polytope` were an actual point, could use .has_element
     # NOTE: In practice, this computation has already been done.
     best_cost = float("inf")
     for polytope in coverage_set:
@@ -67,54 +122,17 @@ def scipy_unordered_decomposition_hops(
     if working_polytope is None:
         raise ValueError(f"{target} not contained in coverage set.")
 
-    working_operations = working_polytope.operations
+    operations_remaining = working_polytope.operations
 
     # if this polytope corresponds to the empty operation, we're done.
-    while 0 < len(working_operations):
-        backsolution_polytope = PolytopeData(convex_subpolytopes=[])
-        solution = None
-
-        for ancestor in scipy_coverage_set:
-            # check that this is actually an ancestor
-            if Counter(ancestor.operations) != Counter(working_operations):
-                continue
-
-            # impose the target constraints, which sit on "b"
-            # (really on "c", but "b" has already been projected off)
-            backsolution_polytope.convex_subpolytopes += [
-                ConvexPolytopeData(
-                    inequalities=[
-                        [ineq[0] + sum(x * y for x, y in zip(ineq[4:], target)),
-                         ineq[1], ineq[2], ineq[3]]
-                        for ineq in cp.inequalities
-                    ],
-                    equalities=[
-                        [eq[0] + sum(x * y for x, y in zip(eq[4:], target)),
-                         eq[1], eq[2], eq[3]]
-                        for eq in cp.equalities
-                    ],
+    while 0 < len(operations_remaining):
+        target, operations_remaining, hop = \
+            itemgetter("ancestor", "operations_remaining", "hop")(
+                single_unordered_decomposition_hop(
+                    target, operations_remaining, scipy_coverage_set
                 )
-                for cp in ancestor.convex_subpolytopes
-            ]
-
-            # walk over the convex backsolution subpolytopes, try to find one
-            # that's solvable
-            try:
-                solution = manual_get_random_vertex(backsolution_polytope)
-
-                # a/k/a decomposition.push
-                decomposition.insert(
-                    0,
-                    (solution, ancestor.operations[-1], target)
-                )
-                # NOTE: using `exactly` here causes an infinite loop.
-                target = solution
-                working_operations = ancestor.operations[:-1]
-                break
-            except NoFeasibleSolutions:
-                raise NoBacksolution()
-
-        if solution is None:
-            raise NoBacksolution()
+            )
+        # a/k/a decomposition.push
+        decomposition.insert(0, hop)
 
     return decomposition

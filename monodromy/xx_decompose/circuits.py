@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from functools import reduce
 import math
 import numpy as np
+from operator import itemgetter
 from typing import List
 import warnings
 
@@ -188,7 +189,7 @@ shift_options = {
 }
 
 
-def apply_reflection(reflection_name, coordinate, q):
+def apply_reflection(reflection_name, coordinate):
     """
     Given a reflection type and a canonical coordinate, applies the reflection
     and describes a circuit which enacts the reflection + a global phase shift.
@@ -196,15 +197,15 @@ def apply_reflection(reflection_name, coordinate, q):
     reflection_scalars, reflection_phase_shift, source_reflection_gates = \
         reflection_options[reflection_name]
     reflected_coord = [x * y for x, y in zip(reflection_scalars, coordinate)]
-    source_reflection = qiskit.QuantumCircuit(q)
+    source_reflection = qiskit.QuantumCircuit(2)
     for gate in source_reflection_gates:
-        source_reflection.append(gate(np.pi), [q[0]])
+        source_reflection.append(gate(np.pi), [0])
 
     return reflected_coord, source_reflection, reflection_phase_shift
 
 
 # TODO: I wonder if the global phase shift can be attached to the circuit...
-def apply_shift(shift_name, coordinate, q):
+def apply_shift(shift_name, coordinate):
     """
     Given a shift type and a canonical coordinate, applies the shift and
     describes a circuit which enacts the shift + a global phase shift.
@@ -213,45 +214,162 @@ def apply_shift(shift_name, coordinate, q):
         shift_options[shift_name]
     shifted_coord = [np.pi / 2 * x + y for x, y in zip(shift_scalars, coordinate)]
 
-    source_shift = qiskit.QuantumCircuit(q)
+    source_shift = qiskit.QuantumCircuit(2)
     for gate in source_shift_gates:
-        source_shift.append(gate(np.pi), [q[0]])
-        source_shift.append(gate(np.pi), [q[1]])
+        source_shift.append(gate(np.pi), [0])
+        source_shift.append(gate(np.pi), [1])
 
     return shifted_coord, source_shift, shift_phase_shift
 
 
-def canonical_rotation_circuit(first_index, second_index, q):
+def canonical_rotation_circuit(first_index, second_index):
     """
     Given a pair of distinct indices 0 ≤ (first_index, second_index) ≤ 2,
-    produces a two-qubit circuit (on qubits `q`) which rotates a canonical gate
-    a0 XX + a1 YY + a2 ZZ into a[first] XX + a[second] YY + a[other] ZZ.
+    produces a two-qubit circuit which rotates a canonical gate
+
+        a0 XX + a1 YY + a2 ZZ
+
+    into
+
+        a[first] XX + a[second] YY + a[other] ZZ .
     """
-    conj = qiskit.QuantumCircuit(q)
+    conj = qiskit.QuantumCircuit(2)
 
     if (0, 1) == (first_index, second_index):
         pass  # no need to do anything
     elif (0, 2) == (first_index, second_index):
-        conj.rx(-np.pi / 2, q[0])
-        conj.rx(np.pi / 2, q[1])
+        conj.rx(-np.pi / 2, [0])
+        conj.rx(np.pi / 2, [1])
     elif (1, 0) == (first_index, second_index):
-        conj.rz(-np.pi / 2, q[0])
-        conj.rz(-np.pi / 2, q[1])
+        conj.rz(-np.pi / 2, [0])
+        conj.rz(-np.pi / 2, [1])
     elif (1, 2) == (first_index, second_index):
-        conj.rz(np.pi / 2, q[0])
-        conj.rz(np.pi / 2, q[1])
-        conj.ry(np.pi / 2, q[0])
-        conj.ry(-np.pi / 2, q[1])
+        conj.rz(np.pi / 2, [0])
+        conj.rz(np.pi / 2, [1])
+        conj.ry(np.pi / 2, [0])
+        conj.ry(-np.pi / 2, [1])
     elif (2, 0) == (first_index, second_index):
-        conj.rz(np.pi / 2, q[0])
-        conj.rz(np.pi / 2, q[1])
-        conj.rx(np.pi / 2, q[0])
-        conj.rx(-np.pi / 2, q[1])
+        conj.rz(np.pi / 2, [0])
+        conj.rz(np.pi / 2, [1])
+        conj.rx(np.pi / 2, [0])
+        conj.rx(-np.pi / 2, [1])
     elif (2, 1) == (first_index, second_index):
-        conj.ry(np.pi / 2, q[0])
-        conj.ry(-np.pi / 2, q[1])
+        conj.ry(np.pi / 2, [0])
+        conj.ry(-np.pi / 2, [1])
 
     return conj
+
+
+def xx_circuit_step(
+        source_monodromy_coord, operation, target_monodromy_coord,
+        canonical_coordinate_table,
+        canonical_gate_table
+):
+    """
+    Builds a single step in an XX-based circuit.
+    """
+    source_canonical_coord, target_canonical_coord = [
+        alcove_to_positive_canonical_coordinate(*x)
+        for x in [source_monodromy_coord, target_monodromy_coord]
+    ]
+
+    permute_source_for_overlap, permute_target_for_overlap = None, None
+
+    # apply all possible reflections, shifts to the source
+    for source_reflection_name in reflection_options.keys():
+        reflected_source_coord, source_reflection, reflection_phase_shift = \
+            apply_reflection(source_reflection_name, source_canonical_coord)
+        for source_shift_name in shift_options.keys():
+            shifted_source_coord, source_shift, shift_phase_shift = \
+                apply_shift(source_shift_name, reflected_source_coord)
+
+            # check for overlap, back out permutation
+            source_shared, target_shared = None, None
+            for i, j in [(0, 0), (0, 1), (0, 2),
+                         (1, 0), (1, 1), (1, 2),
+                         (2, 0), (2, 1), (2, 2)]:
+                if nearp(shifted_source_coord[i], target_canonical_coord[j],
+                         modulus=np.pi):
+                    source_shared, target_shared = i, j
+                    break
+            if source_shared is None:
+                continue
+
+            # pick out the other coordinates
+            source_first, source_second = [x for x in [0, 1, 2]
+                                           if x != source_shared]
+            target_first, target_second = [x for x in [0, 1, 2]
+                                           if x != target_shared]
+
+            # check for arccos validity
+            r, s, u, v, x, y = decompose_xxyy_into_xxyy_xx(
+                float(target_canonical_coord[target_first]),
+                float(target_canonical_coord[target_second]),
+                float(shifted_source_coord[source_first]),
+                float(shifted_source_coord[source_second]),
+                float(canonical_coordinate_table[operation][0]),
+            )
+            if any([math.isnan(val) for val in (r, s, u, v, x, y)]):
+                continue
+
+            # OK: this combination of things works.
+            # save the permutation which rotates the shared coordinate into ZZ.
+            permute_source_for_overlap = canonical_rotation_circuit(
+                source_first, source_second
+            )
+            permute_target_for_overlap = canonical_rotation_circuit(
+                target_first, target_second
+            )
+            break
+
+        if permute_source_for_overlap is not None:
+            break
+
+    if permute_source_for_overlap is None:
+        print("Raising NoBacksolution.")
+        raise NoBacksolution()
+
+    prefix_circuit, affix_circuit = \
+        qiskit.QuantumCircuit(2), qiskit.QuantumCircuit(2)
+
+    # the basic formula we're trying to work with is:
+    # target^p_t_f_o =
+    #     rs * (source^s_reflection * s_shift)^p_s_f_o * uv * operation * xy
+    # but we're rearranging it into the form
+    #   target = affix source prefix
+    # and computing just the prefix / affix circuits.
+
+    # the outermost prefix layer comes from the (inverse) target permutation.
+    prefix_circuit += permute_target_for_overlap.inverse()
+    # the middle prefix layer comes from the local Z rolls.
+    prefix_circuit.rz(2 * x, [0])
+    prefix_circuit.rz(2 * y, [1])
+    prefix_circuit.compose(canonical_gate_table[operation], inplace=True)
+    prefix_circuit.rz(2 * u, [0])
+    prefix_circuit.rz(2 * v, [1])
+    # the innermost prefix layer is source_reflection, shifted by source_shift,
+    # finally conjugated by p_s_f_o.
+    prefix_circuit += permute_source_for_overlap
+    prefix_circuit += source_reflection
+    prefix_circuit.global_phase += -np.log(reflection_phase_shift).imag
+    prefix_circuit.global_phase += -np.log(shift_phase_shift).imag
+
+    # the affix circuit is constructed in reverse.
+    # first (i.e., innermost), we install the other half of the source
+    # transformations and p_s_f_o.
+    affix_circuit += source_reflection.inverse()
+    affix_circuit += source_shift
+    affix_circuit += permute_source_for_overlap.inverse()
+    # then, the other local rolls in the middle.
+    affix_circuit.rz(2 * r, [0])
+    affix_circuit.rz(2 * s, [1])
+    # finally, the other half of the p_t_f_o conjugation.
+    affix_circuit += permute_target_for_overlap
+
+    return {
+        "prefix_circuit": prefix_circuit,
+        "affix_circuit": affix_circuit
+    }
 
 
 def xx_circuit_from_decomposition(
@@ -264,10 +382,7 @@ def xx_circuit_from_decomposition(
 
     Returns a QISKit circuit modeling the decomposed interaction.
     """
-    # TODO: is this proper form?
-    q = qiskit.QuantumRegister(2)
-    qc = qiskit.QuantumCircuit(q)
-    global_phase = 1 + 0j
+    qc = qiskit.QuantumCircuit(2)
 
     canonical_coordinate_table = {
         operation.operations[0]: alcove_to_positive_canonical_coordinate(
@@ -300,110 +415,32 @@ def xx_circuit_from_decomposition(
         )
     else:
         _, source_reflection, reflection_phase_shift = \
-            apply_reflection("reflect XX, YY", [0, 0, 0], q)
+            apply_reflection("reflect XX, YY", [0, 0, 0])
         _, source_shift, shift_phase_shift = \
-            apply_shift("X shift", [0, 0, 0], q)
+            apply_shift("X shift", [0, 0, 0])
 
         qc += source_reflection
         qc.compose(canonical_gate_table[decomposition[0][1]], inplace=True)
         qc += source_reflection.inverse()
         qc += source_shift
-
-        global_phase *= shift_phase_shift * reflection_phase_shift
+        qc.global_phase += -np.log(shift_phase_shift).imag
+        qc.global_phase += -np.log(reflection_phase_shift).imag
 
     # from here, we have to work.
-    for decomposition_depth, (source_alcove_coord, operation, target_alcove_coord) \
-            in enumerate(decomposition[1:]):
-        source_canonical_coord, target_canonical_coord = [
-            alcove_to_positive_canonical_coordinate(*x)
-            for x in [source_alcove_coord, target_alcove_coord]
-        ]
-
-        permute_source_for_overlap, permute_target_for_overlap = None, None
-
-        # apply all possible reflections, shifts to the source
-        for source_reflection_name in reflection_options.keys():
-            reflected_source_coord, source_reflection, reflection_phase_shift = \
-                apply_reflection(source_reflection_name, source_canonical_coord, q)
-            for source_shift_name in shift_options.keys():
-                shifted_source_coord, source_shift, shift_phase_shift = \
-                    apply_shift(source_shift_name, reflected_source_coord, q)
-
-                # check for overlap, back out permutation
-                source_shared, target_shared = None, None
-                for i, j in [(0, 0), (0, 1), (0, 2),
-                             (1, 0), (1, 1), (1, 2),
-                             (2, 0), (2, 1), (2, 2)]:
-                    if nearp(shifted_source_coord[i], target_canonical_coord[j],
-                             modulus=np.pi):
-                        source_shared, target_shared = i, j
-                        break
-                if source_shared is None:
-                    continue
-
-                # pick out the other coordinates
-                source_first, source_second = [x for x in [0, 1, 2] if
-                                               x != source_shared]
-                target_first, target_second = [x for x in [0, 1, 2] if
-                                               x != target_shared]
-
-                # check for arccos validity
-                r, s, u, v, x, y = decompose_xxyy_into_xxyy_xx(
-                    float(target_canonical_coord[target_first]),
-                    float(target_canonical_coord[target_second]),
-                    float(shifted_source_coord[source_first]),
-                    float(shifted_source_coord[source_second]),
-                    float(canonical_coordinate_table[operation][0]),
+    for source_monodromy_coord, operation, target_monodromy_coord \
+            in decomposition[1:]:
+        prefix_circuit, affix_circuit = \
+            itemgetter("prefix_circuit", "affix_circuit")(
+                xx_circuit_step(
+                    source_monodromy_coord, operation, target_monodromy_coord,
+                    canonical_coordinate_table,
+                    canonical_gate_table
                 )
-                if any([math.isnan(val) for val in (r, s, u, v, x, y)]):
-                    continue
+            )
+        assembled_circuit = qiskit.QuantumCircuit(2)
+        assembled_circuit.compose(prefix_circuit, inplace=True)
+        assembled_circuit.compose(qc, inplace=True)
+        assembled_circuit.compose(affix_circuit, inplace=True)
+        qc = assembled_circuit
 
-                # OK: this combination of things works.
-                # save the permutation which rotates the shared coordinate into ZZ.
-                permute_source_for_overlap = canonical_rotation_circuit(
-                    source_first, source_second, q)
-                permute_target_for_overlap = canonical_rotation_circuit(
-                    target_first, target_second, q)
-                break
-
-            if permute_source_for_overlap is not None:
-                break
-
-        if permute_source_for_overlap is None:
-            raise NoBacksolution()
-
-        # target^p_t_f_o = rs * (source^s_reflection * s_shift)^p_s_f_o * uv * operation * xy
-        # start with source conjugated by source_reflection, shifted by source_shift, conjugated by p_s_f_o
-        output_circuit = qiskit.QuantumCircuit(q)
-        output_circuit += permute_source_for_overlap
-        output_circuit += source_reflection
-        output_circuit.compose(qc, inplace=True)
-        output_circuit += source_reflection.inverse()
-        output_circuit += source_shift
-        output_circuit += permute_source_for_overlap.inverse()
-        qc = output_circuit
-        global_phase *= reflection_phase_shift * shift_phase_shift
-
-        # target^p_t_f_o = rs * qc * uv * operation * xy
-        # install the local Z rolls
-        output_circuit = qiskit.QuantumCircuit(q)
-        output_circuit.rz(2 * x, q[0])
-        output_circuit.rz(2 * y, q[1])
-        output_circuit.compose(canonical_gate_table[operation], inplace=True)
-        output_circuit.rz(2 * u, q[0])
-        output_circuit.rz(2 * v, q[1])
-        output_circuit.compose(qc, inplace=True)
-        output_circuit.rz(2 * r, q[0])
-        output_circuit.rz(2 * s, q[1])
-        qc = output_circuit
-
-        # target = qc^p_t_f_o*
-        # finally, conjugate by the (inverse) target permutation
-        output_circuit = qiskit.QuantumCircuit(q)
-        output_circuit += permute_target_for_overlap.inverse()
-        output_circuit.compose(qc, inplace=True)
-        output_circuit += permute_target_for_overlap
-        qc = output_circuit
-
-    qc.global_phase += -np.log(global_phase).imag
     return qc

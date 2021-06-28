@@ -129,12 +129,19 @@ class LRSBackend(Backend):
         return simplices["simplices"]
 
 
-def single_lrs_pass(payload: bytes) -> bytes:
+def single_lrs_pass(payload: bytes, chatty=False) -> bytes:
     """Generic wrapper for lrs."""
+    if chatty:
+        print("=== LRS CALL ===")
+        print("Payload:")
+        print(payload.decode())
     proc = Popen([LRS_PATH], stdin=PIPE, stdout=PIPE, stderr=PIPE)
     stdout, stderr = proc.communicate(payload)
     # TODO: You could do something with stderr, but beware: if lrs restarts with
     #       a different arithmetic type, it puts some chatter on that stream.
+    if chatty:
+        print("Response:")
+        print(stdout.decode())
     return stdout
 
 

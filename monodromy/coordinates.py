@@ -42,7 +42,7 @@ from typing import List, Optional
 import numpy as np
 
 from .polytopes import ConvexPolytope, make_convex_polytope, Polytope
-from .utilities import epsilon
+from .utilities import clear_memoization, epsilon
 
 
 """
@@ -212,6 +212,8 @@ def monodromy_to_positive_canonical_polytope(
         ))
 
     canonical_polytope = copy(monodromy_polytope)
+    clear_memoization(canonical_polytope)
+
     canonical_polytope.convex_subpolytopes = canonical_convex_subpolytopes
     return canonical_polytope
 

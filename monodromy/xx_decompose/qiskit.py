@@ -19,8 +19,8 @@ from qiskit.quantum_info.synthesis.two_qubit_decompose import \
     TwoQubitWeylDecomposition
 
 from .circuits import apply_reflection, apply_shift, canonical_xx_circuit
-from ..coordinates import alcove_to_positive_canonical_coordinate, \
-    fidelity_distance, unitary_to_alcove_coordinate
+from ..coordinates import monodromy_to_positive_canonical_coordinate, \
+    fidelity_distance, unitary_to_monodromy_coordinate
 from .defaults import get_zx_operations, default_data, default_zx_operation_cost
 from ..io.inflate import filter_scipy_data
 from .scipy import nearest_point_polyhedron, polyhedron_has_element, \
@@ -100,13 +100,13 @@ class MonodromyZXDecomposer:
         """
         Constructs the functional which measures the trace distance to `target`.
         """
-        a0, b0, c0 = alcove_to_positive_canonical_coordinate(*target)
+        a0, b0, c0 = monodromy_to_positive_canonical_coordinate(*target)
 
         def objective(array):
             return -fidelity_distance(target, array)
 
         def jacobian(array):
-            a, b, c = alcove_to_positive_canonical_coordinate(*array)
+            a, b, c = monodromy_to_positive_canonical_coordinate(*array)
 
             # squares
             ca2, sa2 = cos(a0 - a) ** 2, sin(a0 - a) ** 2
@@ -188,7 +188,7 @@ class MonodromyZXDecomposer:
 
         NOTE: Used by ConsolidateBlocks.
         """
-        target = unitary_to_alcove_coordinate(unitary)[:3]
+        target = unitary_to_monodromy_coordinate(unitary)[:3]
         best_polytope = self._rank_euclidean_polytopes(target)[-1]
         return len(best_polytope.operations)
 
@@ -232,7 +232,7 @@ class MonodromyZXDecomposer:
         NOTE: Ignores `basis_fidelity` in favor of the operation tables loaded
               at initialization time.
         """
-        target = unitary_to_alcove_coordinate(u)[:3]
+        target = unitary_to_monodromy_coordinate(u)[:3]
         best_point, best_cost, best_operations = \
             itemgetter("point", "cost", "operations")(
                 self._best_decomposition(target)
@@ -242,8 +242,8 @@ class MonodromyZXDecomposer:
             print(f"Overall best: {best_point} hits {best_cost} via "
                   f"{'.'.join(best_operations)}")
             print(f"In canonical coordinates: "
-                  f"{alcove_to_positive_canonical_coordinate(*best_point)} "
-                  f"from {alcove_to_positive_canonical_coordinate(*target)}")
+                  f"{monodromy_to_positive_canonical_coordinate(*best_point)} "
+                  f"from {monodromy_to_positive_canonical_coordinate(*target)}")
 
         circuit = canonical_xx_circuit(
             best_point,
@@ -256,11 +256,11 @@ class MonodromyZXDecomposer:
             print([weyl_decomposition.a,
                    weyl_decomposition.b,
                    weyl_decomposition.c])
-            print(alcove_to_positive_canonical_coordinate(*target))
+            print(monodromy_to_positive_canonical_coordinate(*target))
 
         # change to positive canonical coordinates
         if abs(weyl_decomposition.c -
-               alcove_to_positive_canonical_coordinate(*target)[2]) < epsilon:
+               monodromy_to_positive_canonical_coordinate(*target)[2]) < epsilon:
             # if they're the same...
             corrected_circuit = QuantumCircuit(2)
             corrected_circuit.rz(np.pi, [0])

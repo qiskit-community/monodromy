@@ -3,7 +3,7 @@ import qiskit
 from monodromy.xx_decompose.circuits import *
 from monodromy.xx_decompose.defaults import *
 from monodromy.xx_decompose.precalculate import calculate_unordered_scipy_coverage_set
-from monodromy.coordinates import alcove_to_positive_canonical_coordinate
+from monodromy.coordinates import monodromy_to_positive_canonical_coordinate
 from monodromy.coverage import *
 from monodromy.static.examples import *
 from monodromy.haar import expected_cost
@@ -47,7 +47,7 @@ qc = canonical_xx_circuit(
 print("The following circuit implements the canonical gate at "
       f"{[str(x) for x in alcove_coordinate]}: ", end="")
 print((abs(qiskit.quantum_info.Operator(qc).data -
-           canonical_matrix(*alcove_to_positive_canonical_coordinate(*alcove_coordinate)))
+           canonical_matrix(*monodromy_to_positive_canonical_coordinate(*alcove_coordinate)))
        < 0.01).all())
 
 print(qc)

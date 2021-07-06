@@ -8,20 +8,24 @@ several common coordinate systems / choices of Weyl alcove in pu_4:
 
       exp(-i(a XX + b YY + c ZZ))
 
-  with a, b, c further chosen to satisfy pi/4 ≥ a ≥ b ≥ |c|.
+  with a, b, c further chosen to satisfy pi/4 ≥ a ≥ b ≥ |c|.  One may further
+  _normalize_ these coordinates by dividing by pi, so that the polytope becomes
+  integrally specified.
 
 + (Positive) canonical parameters: These are the (a, b, c) in the exponential
 
       exp(-i(a XX + b YY + c ZZ))
 
-  with a, b, c further chosen to satisfy a ≥ b ≥ c ≥ 0 and pi - a ≥ b.
+  with a, b, c further chosen to satisfy a ≥ b ≥ c ≥ 0 and pi - a ≥ b.  One may
+  further _normalize_ these coordinates by dividing by pi, so that the polytope
+  becomes integrally specified.
 
-+ Alcove coordinates: These are the a, b, c in the formula
++ Monodromy coordinates: These are the a, b, c in the formula
 
       exp(diag(2 pi i a, 2 pi i b, 2 pi i c, -2 pi i(a + b + c)),
 
   with a, b, c further chosen to satisfy a ≥ b ≥ c ≥ -(a + b + c) ≥ a - 1 and
-  b + c ≥ 0.
+  b + c ≥ 0.  These coordinates are always taken to be "normalized".
 
   NOTE: In the Monodromy Polytope paper, we used the condition c + 1/2 ≥ a
         instead.  This is mathematically legal, but the resulting alcove (a
@@ -45,59 +49,73 @@ from .polytopes import ConvexPolytope, make_convex_polytope, Polytope
 from .utilities import clear_memoization, epsilon
 
 
-"""
-Inequalities defining the standard choice of fundamental Weyl alcove in
-normalized positive canonical coordinates for SU(4).
-
-cf. Eqn 6 of Entropy.
-"""
-positive_canonical_convex_polytope_su4 = make_convex_polytope([
+positive_canonical_alcove = make_convex_polytope([
     [1, -1,  0,  0],  # 1  >= c1
     [0,  1, -1,  0],  # c1 >= c2
     [0,  0,  1, -1],  # c2 >= c3
     [1, -1, -1,  0],  # 1 - c1 >= c2
     [0,  0,  1,  1],  # c3 >= -c2
 ])
+"""
+Inequalities defining the standard choice of fundamental Weyl alcove in
+normalized positive canonical coordinates for SU(4).
+
+cf. Eqn 6 of Entropy.
+"""
 
 
+positive_canonical_alcove_c2 = make_convex_polytope([
+    *positive_canonical_alcove.convex_subpolytopes[0].inequalities,
+    [0, 0, 0, 1],  # c3 >=  0, the C2 inequality
+])
 """
 Inequalities defining the standard choice of fundamental Weyl alcove in
 normalized positive canonical coordinates for PU(4).
 
 cf. Eqn 6 of Entropy.
 """
-positive_canonical_convex_polytope = make_convex_polytope([
-    *positive_canonical_convex_polytope_su4.convex_subpolytopes[0].inequalities,
-    [0, 0, 0, 1],  # c3 >=  0, the C2 inequality
-])
 
 
-"""
-Inequalities defining the fundamental Weyl alcove used in monodromy polytope
-calculations for SU(4).
-"""
-alcove = make_convex_polytope([
+monodromy_alcove = make_convex_polytope([
     [0,  1, -1,  0, ],  # a1 - a2 >= 0
     [0,  0,  1, -1, ],  # a2 - a3 >= 0
     [0,  1,  1,  2, ],  # a3 - a4 >= 0
     [1, -2, -1, -1, ],  # a4 - (a1 - 1) >= 0
 ])
-
-
 """
 Inequalities defining the fundamental Weyl alcove used in monodromy polytope
-calculations for PU(4).
+calculations for SU(4).
 """
-alcove_c2 = make_convex_polytope([
+
+
+monodromy_alcove_c2 = make_convex_polytope([
     [1, -2, -1, -1],
     [0,  0,  1,  1],
     [0,  1, -1,  0],
     [0,  0,  1, -1]
 ])
-# alcove_c2 = make_convex_polytope([
-#     *alcove.convex_subpolytopes[0].inequalities,
+# monodromy_alcove_c2 = make_convex_polytope([
+#     *monodromy_alcove.convex_subpolytopes[0].inequalities,
 #     [0, 0, 1, 1, ],  # a2 + a3 >= 0 , the C2 inequality
 # ]).reduce()
+"""
+Inequalities defining the fundamental Weyl alcove used in monodromy polytope
+calculations for PU(4).
+"""
+
+
+monodromy_alcove_c2_pcs = make_convex_polytope([
+    *monodromy_alcove.convex_subpolytopes[0].inequalities,
+    [1, -2, 0, 2, ],  # a3 + 1/2 >= a1 , the C2 inequality
+])
+"""
+Inequalities defining the fundamental Weyl alcove used in monodromy polytope
+calculations for PU(4) according to Peterson-Crooks-Smith.
+
+IMPORTANT NOTE: This is only scissors-congruent to alcove_c2, which is itself
+    linearly equivalent to positive_canonical_convex_polytope.  We advise _not_
+    using these coordinates.
+"""
 
 
 def normalize_logspec_A(coordinate):
@@ -136,7 +154,7 @@ def normalize_logspec_AC2(coordinate):
                 partially_normalized_coordinate[1] - 1 / 2]
 
 
-def unitary_to_alcove_coordinate(unitary):
+def unitary_to_monodromy_coordinate(unitary):
     """
     Given a unitary matrix, produces its alcove coordinate.
     """
@@ -155,7 +173,7 @@ def unitary_to_alcove_coordinate(unitary):
     )
 
 
-def alcove_to_positive_canonical_coordinate(x, y, z):
+def monodromy_to_positive_canonical_coordinate(x, y, z):
     """
     Given a monodromy alcove coordinate, produces its image as a _unnormalized_
     positive canonical coordinate.
@@ -231,10 +249,75 @@ def fidelity_distance(p, q):
     monodromy coordinates.
     """
 
-    a, b, c = alcove_to_positive_canonical_coordinate(*p)
-    d, e, f = alcove_to_positive_canonical_coordinate(*q)
+    a, b, c = monodromy_to_positive_canonical_coordinate(*p)
+    d, e, f = monodromy_to_positive_canonical_coordinate(*q)
 
     return 1 / 20 * (4 + 16 * (
         math.cos(a - d) ** 2 * math.cos(b - e) ** 2 * math.cos(c - f) ** 2 +
         math.sin(a - d) ** 2 * math.sin(b - e) ** 2 * math.sin(c - f) ** 2
     ))
+
+
+def rho_reflect(polytope, coordinates=None):
+    """
+    Applies rho-reflection to the indicated `coordinates` of `polytope`.
+    If `coordinates` is not supplied, uses the final three coordinates.
+    """
+
+    if coordinates is None:
+        coordinates = [0, -3, -2, -1]
+
+    # an inequality
+    #     d + x a1 + y a2 + z a3 >= 0
+    # induces on rho-application
+    #     d + x (a3 + 1/2) + y (a4 + 1/2) + z (a1 - 1/2) >= 0, or
+    #    (d + 1/2 x + 1/2 y - 1/2 z) + (z - y) a1 + (-y) a2 + (x - y) a3 >= 0.
+    rho_subpolytopes = []
+    for convex_subpolytope in polytope.convex_subpolytopes:
+        rotated_equalities, rotated_inequalities = [], []
+        for inequality in convex_subpolytope.inequalities:
+            d = inequality[coordinates[0]]
+            x = inequality[coordinates[1]]
+            y = inequality[coordinates[2]]
+            z = inequality[coordinates[3]]
+
+            new_inequality = [2 * x for x in inequality]
+            new_inequality[coordinates[0]] = 2 * d + x + y - z
+            new_inequality[coordinates[1]] = 2 * z - 2 * y
+            new_inequality[coordinates[2]] = 2 * 0 - 2 * y
+            new_inequality[coordinates[3]] = 2 * x - 2 * y
+
+            rotated_inequalities.append(new_inequality)
+
+        for equality in convex_subpolytope.equalities:
+            d = equality[coordinates[0]]
+            x = equality[coordinates[1]]
+            y = equality[coordinates[2]]
+            z = equality[coordinates[3]]
+
+            new_equality = [2 * x for x in equality]
+            new_equality[coordinates[0]] = 2 * d + x + y - z
+            new_equality[coordinates[1]] = 2 * z - 2 * y
+            new_equality[coordinates[2]] = 2 * 0 - 2 * y
+            new_equality[coordinates[3]] = 2 * x - 2 * y
+
+            rotated_equalities.append(new_equality)
+
+        rho_subpolytopes.append(ConvexPolytope(
+            inequalities=rotated_inequalities,
+            equalities=rotated_equalities,
+        ))
+
+    return Polytope(convex_subpolytopes=rho_subpolytopes)
+
+
+def monodromy_to_monodromy_pcs_polytope(polytope):
+    """
+    Converts a `polytope`, expressed in monodromy coordinates with the standard
+    rho-normalization condition, to a polytope in monodromy coordinates with the
+    Peterson-Crooks-Smith normalization condition instead.
+    """
+
+    return polytope.intersect(monodromy_alcove_c2_pcs).union(
+        rho_reflect(polytope).intersect(monodromy_alcove_c2_pcs)
+    )

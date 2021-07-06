@@ -9,7 +9,7 @@ from typing import Dict, List, Tuple
 
 from ..xx_decompose.circuits import OperationPolytope
 from .base import CircuitPolytopeData
-from ..coordinates import alcove_c2
+from ..coordinates import monodromy_alcove_c2
 
 
 def inflate_scipy_data(deflated_data):
@@ -61,7 +61,7 @@ def filter_scipy_data(
         if (set([tuple(x) for x in
                  polytope.convex_subpolytopes[0].inequalities]) ==
             set([tuple(x) for x in
-                 alcove_c2.convex_subpolytopes[0].inequalities])):
+                 monodromy_alcove_c2.convex_subpolytopes[0].inequalities])):
             break
 
     if chatty:

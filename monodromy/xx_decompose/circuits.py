@@ -28,7 +28,7 @@ import qiskit
 from qiskit.circuit.library import RXGate, RYGate, RZGate
 import qiskit.quantum_info
 
-from ..coordinates import alcove_to_positive_canonical_coordinate
+from ..coordinates import monodromy_to_positive_canonical_coordinate
 from ..coverage import CircuitPolytope
 from ..exceptions import NoBacksolution
 from ..io.base import OperationPolytopeData
@@ -260,7 +260,7 @@ def xx_circuit_step(
     Builds a single step in an XX-based circuit.
     """
     source_canonical_coord, target_canonical_coord = [
-        alcove_to_positive_canonical_coordinate(*x)
+        monodromy_to_positive_canonical_coordinate(*x)
         for x in [source_monodromy_coord, target_monodromy_coord]
     ]
 
@@ -373,7 +373,7 @@ def canonical_xx_circuit(
     """
 
     canonical_coordinate_table = {
-        operation.operations[0]: alcove_to_positive_canonical_coordinate(
+        operation.operations[0]: monodromy_to_positive_canonical_coordinate(
             *[next(-eq[0] / eq[1 + j]
                    for eq in operation.convex_subpolytopes[0].equalities
                    if eq[1 + j] != 0)

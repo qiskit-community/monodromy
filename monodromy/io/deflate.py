@@ -7,7 +7,7 @@ Routines for deflating a coverage set for export.
 from dataclasses import asdict
 from typing import Dict, List
 
-from ..coordinates import alcove_c2
+from ..coordinates import monodromy_alcove_c2
 from ..coverage import CircuitPolytope, intersect_and_project
 from ..xx_decompose.precalculate import calculate_unordered_scipy_coverage_set
 from ..static import everything_polytope, identity_polytope
@@ -65,7 +65,7 @@ def generate_deflated_coverage_data(
         coverage_set[tuple(buckets)] = output_polytope
 
         # increment the bucket counters
-        if not output_polytope.contains(alcove_c2):
+        if not output_polytope.contains(monodromy_alcove_c2):
             buckets[0] += 1
         else:
             # if it has perfect coverage, roll over:

@@ -10,10 +10,10 @@ from fractions import Fraction
 import heapq
 from typing import Dict, List, Optional
 
-from .coordinates import alcove, alcove_c2
+from .coordinates import monodromy_alcove, monodromy_alcove_c2, rho_reflect
 from .io.base import CircuitPolytopeData
 from .elimination import cylinderize, project
-from .polytopes import ConvexPolytope, Polytope, trim_polytope_set
+from .polytopes import Polytope, trim_polytope_set
 from .static.examples import everything_polytope, identity_polytope
 from .static.qlr_table import qlr_polytope
 
@@ -39,59 +39,6 @@ class CircuitPolytope(Polytope, CircuitPolytopeData):
     def __le__(self, other):
         return (self.cost < other.cost) or \
                (self.cost == other.cost and self.volume <= other.volume)
-
-
-def rho_reflect(polytope, coordinates=None):
-    """
-    Applies rho-reflection to the indicated `coordinates` of `polytope`.
-    If `coordinates` is not supplied, uses the final three coordinates.
-    """
-
-    if coordinates is None:
-        coordinates = [0, -3, -2, -1]
-
-    # an inequality
-    #     d + x a1 + y a2 + z a3 >= 0
-    # induces on rho-application
-    #     d + x (a3 + 1/2) + y (a4 + 1/2) + z (a1 - 1/2) >= 0, or
-    #    (d + 1/2 x + 1/2 y - 1/2 z) + (z - y) a1 + (-y) a2 + (x - y) a3 >= 0.
-    rho_subpolytopes = []
-    for convex_subpolytope in polytope.convex_subpolytopes:
-        rotated_equalities, rotated_inequalities = [], []
-        for inequality in convex_subpolytope.inequalities:
-            d = inequality[coordinates[0]]
-            x = inequality[coordinates[1]]
-            y = inequality[coordinates[2]]
-            z = inequality[coordinates[3]]
-
-            new_inequality = [2 * x for x in inequality]
-            new_inequality[coordinates[0]] = 2 * d + x + y - z
-            new_inequality[coordinates[1]] = 2 * z - 2 * y
-            new_inequality[coordinates[2]] = 2 * 0 - 2 * y
-            new_inequality[coordinates[3]] = 2 * x - 2 * y
-
-            rotated_inequalities.append(new_inequality)
-
-        for equality in convex_subpolytope.equalities:
-            d = equality[coordinates[0]]
-            x = equality[coordinates[1]]
-            y = equality[coordinates[2]]
-            z = equality[coordinates[3]]
-
-            new_equality = [2 * x for x in equality]
-            new_equality[coordinates[0]] = 2 * d + x + y - z
-            new_equality[coordinates[1]] = 2 * z - 2 * y
-            new_equality[coordinates[2]] = 2 * 0 - 2 * y
-            new_equality[coordinates[3]] = 2 * x - 2 * y
-
-            rotated_equalities.append(new_equality)
-
-        rho_subpolytopes.append(ConvexPolytope(
-            inequalities=rotated_inequalities,
-            equalities=rotated_equalities,
-        ))
-
-    return Polytope(convex_subpolytopes=rho_subpolytopes)
 
 
 def intersect_and_project(
@@ -120,7 +67,7 @@ def intersect_and_project(
     p = p.union(rho_reflect(p, coordinates[target]))
     # impose the "large" alcove constraints
     for value in coordinates.values():
-        p = p.intersect(cylinderize(alcove, value))
+        p = p.intersect(cylinderize(monodromy_alcove, value))
 
     # also impose whatever constraints we were given besides
     p = p.intersect(cylinderize(a_polytope, coordinates["a"]))
@@ -128,7 +75,7 @@ def intersect_and_project(
     p = p.intersect(cylinderize(c_polytope, coordinates["c"]))
 
     # restrict to the A_{C_2} part of the target coordinate
-    p = p.intersect(cylinderize(alcove_c2, coordinates[target]))
+    p = p.intersect(cylinderize(monodromy_alcove_c2, coordinates[target]))
 
     # lastly, project away the non-target parts
     p = p.reduce()
@@ -167,9 +114,9 @@ def prereduce_operation_polytopes(
         p = p.intersect(qlr_polytope)
         p = p.union(rho_reflect(p, coordinates[target_coordinate]))
         for value in coordinates.values():
-            p = p.intersect(cylinderize(alcove, value))
+            p = p.intersect(cylinderize(monodromy_alcove, value))
         p = p.intersect(cylinderize(operation, coordinates["b"]))
-        p = p.intersect(cylinderize(alcove_c2, coordinates[target_coordinate]))
+        p = p.intersect(cylinderize(monodromy_alcove_c2, coordinates[target_coordinate]))
 
         # project away the operation part
         p = p.reduce()
@@ -275,13 +222,13 @@ def build_coverage_set(
             print(f"Cost {next_polytope.cost} ", end="")
             volume = new_polytope.volume
             if volume.dimension == 3:
-                volume = volume.volume / alcove_c2.volume.volume
+                volume = volume.volume / monodromy_alcove_c2.volume.volume
                 print(f"and volume {float(100 * volume):6.2f}%")
             else:
                 print(f"and volume {0:6.2f}%")
         
         # if this polytope is NOT of maximum volume,
-        if alcove_c2.volume > new_polytope.volume:
+        if monodromy_alcove_c2.volume > new_polytope.volume:
             # add this polytope + the continuations to the priority queue
             for operation in operations:
                 heapq.heappush(to_be_explored, CircuitPolytope(
@@ -308,7 +255,7 @@ def print_coverage_set(necessary_polytopes):
     for gate in necessary_polytopes:
         vol = gate.volume
         if vol.dimension == 3:
-            vol = vol.volume / alcove_c2.volume.volume
+            vol = vol.volume / monodromy_alcove_c2.volume.volume
         else:
             vol = Fraction(0)
         print(f"{float(100 * vol):6.2f}% = "

@@ -51,14 +51,14 @@ identity_polytope = exactly(        0,     0,      0)
 #     [0, -1,  1,  0,],
 #     [0,  0,  1,  1,],   # x2 == -x3
 #     [0,  0, -1, -1,],
-#     *alcove_c2.convex_subpolytopes[0].inequalities,
+#     *monodromy_alcove_c2.convex_subpolytopes[0].inequalities,
 # ])
 # XY_polytope = make_convex_polytope([
 #     [0, 0,  1,  0],  # x2 == 0
 #     [0, 0, -1,  0],
 #     [0, 0,  0,  1],  # x3 == 0
 #     [0, 0,  0, -1],
-#     *alcove_c2.convex_subpolytopes[0].inequalities,
+#     *monodromy_alcove_c2.convex_subpolytopes[0].inequalities,
 # ])
 #
 #

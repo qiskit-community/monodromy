@@ -21,12 +21,12 @@ from ..polytopes import ConvexPolytope, PolytopeVolume
 from ..utilities import lcm
 
 
-"""Environment variable used to override the path to the `lrs` executable."""
 LRS_ENV = "LRS_PATH"
+"""Environment variable used to override the path to the `lrs` executable."""
 
 
-"""Default path to the user's `lrs` executable."""
 LRS_PATH = getenv(LRS_ENV, "lrs")
+"""Default path to the user's `lrs` executable."""
 
 
 def check_for_lrs():

@@ -20,29 +20,29 @@ def exactly(*coordinates) -> Polytope:
     return make_convex_polytope([], equalities=table)
 
 
+everything_polytope = Polytope(convex_subpolytopes=[
+    ConvexPolytope(inequalities=[])
+])
 """
 The basic boolean "True" polytope: all points belong.
 
 NOTE: This polytope is dimensionless.
 """
-everything_polytope = Polytope(convex_subpolytopes=[
-    ConvexPolytope(inequalities=[])
-])
 
 
+empty_polytope = Polytope(convex_subpolytopes=[])
 """
 The basic boolean "False" polytope: no points belong.
 
 NOTE: This polytope is dimensionless.
 """
-empty_polytope = Polytope(convex_subpolytopes=[])
 
 
+identity_polytope = exactly(        0,     0,      0)
 """
 A polytope containing only the canonical coordinate of the identity gate, i.e.,
 the origin in 3-space.
 """
-identity_polytope = exactly(        0,     0,      0)
 
 
 # # some parametric gates of interest

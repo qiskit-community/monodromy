@@ -167,6 +167,17 @@ reflection_options = {
     "reflect XX, ZZ": ([-1,  1, -1],  1, [RYGate]),  # we checked this phase, but only in a pair with Y shift
     "reflect YY, ZZ": ([ 1, -1, -1], -1, [RXGate]),  # unchecked
 }
+"""
+A table of available reflection transformations on canonical coordinates.
+Entries take the form
+
+    readable_name: (reflection scalars, global phase, [gate constructors]),
+    
+where reflection scalars (a, b, c) model the map (x, y, z) |-> (ax, by, cz),
+global phase is a complex unit, and gate constructors are applied in sequence
+and by conjugation to the first qubit and are passed pi as a parameter. 
+"""
+
 
 shift_options = {
     "no shift":    ([0, 0, 0],   1, []),                # we checked this phase
@@ -178,6 +189,19 @@ shift_options = {
     "X,Y shift":   ([1, 1, 0],  -1, [RXGate, RYGate]),  # unchecked
     "X,Y,Z shift": ([1, 1, 1], -1j, [RXGate, RYGate, RZGate]),  # unchecked
 }
+"""
+A table of available shift transformations on canonical coordinates.  Entries
+take the form
+
+    readable name: (shift scalars, global phase, [gate constructors]),
+    
+where shift scalars model the map
+
+    (x, y, z) |-> (x + a pi / 2, y + b pi / 2, z + c pi / 2) ,
+
+global phase is a complex unit, and gate constructors are applied to the first
+and second qubits and are passed pi as a parameter.
+"""
 
 
 def apply_reflection(reflection_name, coordinate):

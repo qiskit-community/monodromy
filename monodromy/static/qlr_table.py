@@ -7,19 +7,6 @@ Precomputed descriptions of the monodromy polytope for SU(4) (and PU(4)).
 from ..polytopes import make_convex_polytope
 
 
-"""
-Precomputed table of quantum Littlewood-Richardson coefficients for the small
-quantum cohomology ring of k-planes in C^4, 0 < k < 4.  Each entry is of the
-form [r, k, [*a], [*b], [*c], d], corresponding to the relation
-
-    N_{ab}^{c, d} = 1   or   <sigma_a, sigma_b, sigma_{*c}> = q^d.
-
-NOTE: We include only entries with a <= b in the traversal ordering used by
-      `qiskit.quantum_info.monodromy.lrcalc.displacements`.
-
-NOTE: This table can be regenerated using
-      `qiskit.quantum_info.monodromy.lrcalc.regenerate_qlr_table` .
-"""
 #              r  k   a    b    c   d
 qlr_table = [[1, 3, [0], [0], [0], 0],
              [1, 3, [0], [1], [1], 0],
@@ -67,6 +54,19 @@ qlr_table = [[1, 3, [0], [0], [0], 0],
              [3, 1, [1, 1, 0], [1, 1, 0], [0, 0, 0], 1],
              [3, 1, [1, 1, 0], [1, 1, 1], [1, 0, 0], 1],
              [3, 1, [1, 1, 1], [1, 1, 1], [1, 1, 0], 1]]
+"""
+Precomputed table of quantum Littlewood-Richardson coefficients for the small
+quantum cohomology ring of k-planes in C^4, 0 < k < 4.  Each entry is of the
+form [r, k, [*a], [*b], [*c], d], corresponding to the relation
+
+    N_{ab}^{c, d} = 1   or   <sigma_a, sigma_b, sigma_{*c}> = q^d.
+
+NOTE: We include only entries with a <= b in the traversal ordering used by
+      `monodromy.io.lrcalc.displacements`.
+
+NOTE: This table can be regenerated using
+      `monodromy.io.lrcalc.regenerate_qlr_table` .
+"""
 
 
 def ineq_from_qlr(r, k, a, b, c, d):
@@ -122,8 +122,8 @@ def generate_qlr_inequalities():
     return qlr_inequalities
 
 
+qlr_polytope = make_convex_polytope(generate_qlr_inequalities())
 """
 This houses the monodromy polytope, the main static input of the whole calc'n.
 This polytope does _not_ also contain the alcove constraints.
 """
-qlr_polytope = make_convex_polytope(generate_qlr_inequalities())

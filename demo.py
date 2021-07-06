@@ -3,7 +3,6 @@ import qiskit
 from monodromy.xx_decompose.circuits import *
 from monodromy.xx_decompose.defaults import *
 from monodromy.xx_decompose.precalculate import calculate_unordered_scipy_coverage_set
-from monodromy.xx_decompose.paths import scipy_unordered_decomposition_hops
 from monodromy.coordinates import alcove_to_positive_canonical_coordinate
 from monodromy.coverage import *
 from monodromy.static.examples import *
@@ -35,25 +34,13 @@ print(monodromy.render.polytopes_to_mathematica(coverage_set))
 # use coverage_set to perform a gate decomposition
 print("Precomputation...")
 
-scipy_coverage_set = calculate_unordered_scipy_coverage_set(
+precomputed_backsolutions = calculate_unordered_scipy_coverage_set(
     coverage_set, operations, chatty=True
 )
 alcove_coordinate = [Fraction(3, 8), Fraction(3, 8), Fraction(-1, 8)]
 point_polytope = exactly(*alcove_coordinate)
-decomposition = scipy_unordered_decomposition_hops(
-    coverage_set, scipy_coverage_set, point_polytope
-)
-for input_alcove_coord, operation, output_alcove_coord in decomposition:
-    line = "("
-    line += " π/4, ".join([f"{float(x / (np.pi/4)):+.3f}"
-                           for x in alcove_to_positive_canonical_coordinate(*input_alcove_coord)])
-    line += f" π/4) --{operation:-<7}-> ("
-    line += " π/4, ".join([f"{float(x / (np.pi/4)):+.3f}"
-                           for x in alcove_to_positive_canonical_coordinate(*output_alcove_coord)])
-    line += " π/4)"
-    print(line)
-qc = xx_circuit_from_decomposition(
-    decomposition, operations
+qc = canonical_xx_circuit(
+    alcove_coordinate, coverage_set, precomputed_backsolutions, operations
 )
 
 # print the circuit for the user to marvel at

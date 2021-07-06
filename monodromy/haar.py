@@ -13,7 +13,7 @@ import numpy as np
 from .coordinates import monodromy_to_positive_canonical_polytope
 from .io.base import CircuitPolytopeData
 from .polynomials import Polynomial, TrigPolynomial
-from .polytopes import alternating_sum, make_convex_polytope
+from .polytopes import alternating_sum
 from .static.examples import empty_polytope
 from .utilities import epsilon
 
@@ -112,7 +112,7 @@ def _haar_volume_convex_polytope(convex_polytope, integrand=None):
     Takes an optional `integrand`, a polynomial expressed in (c1, c2, c3), to
     integrate against the Haar measure.
     """
-    vertices = [[2 * np.pi * x for x in vertex]
+    vertices = [[np.pi * x for x in vertex]
                 for vertex in convex_polytope.vertices]
     mapped_tetrahedra = [(vertices[index] for index in tetrahedron)
                          for tetrahedron in convex_polytope.triangulation]
@@ -145,11 +145,7 @@ def distance_polynomial_integrals(
     dictionary mapping operations tuples from the `coverage_set` to a list of
     calculated integration values.
     """
-    positive_halfspace = make_convex_polytope([[ 1, -4, 0, 0]])
-    negative_halfspace = make_convex_polytope([[-1,  4, 0, 0]])
-
-    positive_polytopes_so_far = empty_polytope
-    negative_polytopes_so_far = empty_polytope
+    polytopes_so_far = empty_polytope
     polynomial_averages = dict()
 
     if chatty:
@@ -159,24 +155,15 @@ def distance_polynomial_integrals(
 
     for polytope in coverage_set:
         polytope = monodromy_to_positive_canonical_polytope(polytope)
-
-        positive_polytope = polytope.intersect(positive_halfspace).reduce()
-        negative_polytope = polytope.intersect(negative_halfspace).reduce()
-        positive_complementary_polytope = positive_polytopes_so_far \
-            .intersect(positive_polytope).reduce()
-        negative_complementary_polytope = negative_polytopes_so_far \
-            .intersect(negative_polytope).reduce()
+        complementary_polytope = polytopes_so_far.intersect(polytope).reduce()
 
         # could reuse these, but probably as cheap to recreate them
-        positive_polynomial_form = Polynomial.from_linear_list([1])
-        negative_polynomial_form = Polynomial.from_linear_list([1])
+        polynomial_form = Polynomial.from_linear_list([1])
         polynomial_averages[tuple(polytope.operations)] = []
         for degree in range(1 + max_degree):
             integral = (
-                haar_volume(positive_polytope, positive_polynomial_form)
-                + haar_volume(negative_polytope, negative_polynomial_form)
-                - haar_volume(positive_complementary_polytope, positive_polynomial_form)
-                - haar_volume(negative_complementary_polytope, negative_polynomial_form)
+                haar_volume(polytope, polynomial_form)
+                - haar_volume(complementary_polytope, polynomial_form)
             )
             polynomial_averages[tuple(polytope.operations)].append(integral)
 
@@ -184,16 +171,13 @@ def distance_polynomial_integrals(
                 print(f"{integral:5.5f}\t | ", end="")
 
             # update the polynomial forms
-            positive_polynomial_form = positive_polynomial_form * \
+            polynomial_form = polynomial_form * \
                 Polynomial.from_linear_list([0, 1, 1, 1])
-            negative_polynomial_form = negative_polynomial_form * \
-                Polynomial.from_linear_list([np.pi, -1, 1, 1])
 
         if chatty:
             print(f"{'.'.join(polytope.operations)}")
 
-        positive_polytopes_so_far = positive_polytopes_so_far.union(positive_polytope).reduce()
-        negative_polytopes_so_far = negative_polytopes_so_far.union(negative_polytope).reduce()
+        polytopes_so_far = polytopes_so_far.union(polytope).reduce()
 
     return polynomial_averages
 

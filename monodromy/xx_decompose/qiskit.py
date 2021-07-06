@@ -21,8 +21,7 @@ from qiskit.quantum_info.synthesis.two_qubit_decompose import \
 from .circuits import apply_reflection, apply_shift, canonical_xx_circuit
 from ..coordinates import alcove_to_positive_canonical_coordinate, \
     fidelity_distance, unitary_to_alcove_coordinate
-from .defaults import get_zx_operations, default_data
-from ..exceptions import NoBacksolution
+from .defaults import get_zx_operations, default_data, default_zx_operation_cost
 from ..io.inflate import filter_scipy_data
 from .scipy import nearest_point_polyhedron, polyhedron_has_element, \
     optimize_over_polytope

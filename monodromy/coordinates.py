@@ -56,6 +56,7 @@ positive_canonical_convex_polytope_su4 = make_convex_polytope([
     [0,  1, -1,  0],  # c1 >= c2
     [0,  0,  1, -1],  # c2 >= c3
     [1, -1, -1,  0],  # 1 - c1 >= c2
+    [0,  0,  1,  1],  # c3 >= -c2
 ])
 
 
@@ -195,15 +196,21 @@ def monodromy_to_positive_canonical_polytope(
         for inequality in convex_subpolytope.inequalities:
             new_inequality = copy(inequality)
             k, x, y, z = (inequality[c] for c in coordinates)
-            for c, v in zip(coordinates, [k, x + y - z, x - y + z, -x + y + z]):
+            for c, v in zip(coordinates, [2 * k, x + y - z, x - y + z, -x + y + z]):
                 new_inequality[c] = v
+            for c in range(len(new_inequality)):
+                if c not in coordinates:
+                    new_inequality[c] *= 2
             inequalities.append(new_inequality)
 
         for equality in convex_subpolytope.equalities:
             new_equality = copy(equality)
             k, x, y, z = (equality[c] for c in coordinates)
-            for c, v in zip(coordinates, [k, x + y - z, x - y + z, -x + y + z]):
+            for c, v in zip(coordinates, [2 * k, x + y - z, x - y + z, -x + y + z]):
                 new_equality[c] = v
+            for c in range(len(new_equality)):
+                if c not in coordinates:
+                    new_equality[c] *= 2
             equalities.append(new_equality)
 
         canonical_convex_subpolytopes.append(ConvexPolytope(

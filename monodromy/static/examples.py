@@ -21,7 +21,7 @@ def exactly(*coordinates) -> Polytope:
 
 
 everything_polytope = Polytope(convex_subpolytopes=[
-    ConvexPolytope(inequalities=[])
+    ConvexPolytope(inequalities=[], name="True")
 ])
 """
 The basic boolean "True" polytope: all points belong.
@@ -38,7 +38,13 @@ NOTE: This polytope is dimensionless.
 """
 
 
-identity_polytope = exactly(        0,     0,      0)
+identity_polytope = Polytope(convex_subpolytopes=[
+    ConvexPolytope(inequalities=[], name="origin", equalities=[
+        [0, 1, 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1],
+    ])
+])
 """
 A polytope containing only the canonical coordinate of the identity gate, i.e.,
 the origin in 3-space.

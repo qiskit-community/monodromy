@@ -174,7 +174,7 @@ def alternating_sum(polytope, volume_fn):
         previous_volumes = volumes
 
     # Now we account for the multiply-canceled terms, using the existing sorting
-    # of `alternating_masks`.  Double-counting occurs only arises when a pair
+    # of `alternating_masks`.  Double-counting occurs only when a pair
     # (mask, toggle) matches an untoggled bitstring and a preceding mask matches
     # its toggle-on form.  We can search for such bitstrings according to the
     # _earliest_ preceding mask that matches its toggled form, ensuring that we

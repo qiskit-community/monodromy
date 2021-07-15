@@ -11,7 +11,8 @@ from typing import List, Optional
 
 import monodromy.backend
 from monodromy.exceptions import NoFeasibleSolutions
-from monodromy.io.base import ConvexPolytopeData, PolytopeData
+from monodromy.io.base import ConvexPolytopeData, PolytopeData, \
+    generate_anonymous_cp_name
 from monodromy.volume import alternating_sum
 from monodromy.utilities import clear_memoization, epsilon, memoized_property
 
@@ -93,7 +94,7 @@ class ConvexPolytope(ConvexPolytopeData):
         return monodromy.backend.backend.reduce(self)
 
     def __str__(self) -> str:
-        output = ""
+        output = f"# {self.name}: \n"
         for inequality in self.inequalities:
             output += f"{str(inequality[0]): >5}"
             for index, item in enumerate(inequality[1:]):
@@ -115,6 +116,7 @@ class ConvexPolytope(ConvexPolytopeData):
         return ConvexPolytope(
             inequalities=self.inequalities + other.inequalities,
             equalities=self.equalities + other.equalities,
+            name=f"{self.name} ∩ {other.name}"
         )
 
     def has_element(self, point) -> bool:
@@ -337,13 +339,16 @@ def trim_polytope_set(
 def make_convex_polytope(
         inequalities: List[List[int]],
         equalities: Optional[List[List[int]]] = None,
+        name: Optional[str] = None,
 ) -> Polytope:
     """
     Convenience method for forming a Polytope with one component.
     """
     equalities = equalities if equalities is not None else []
+    name = name if name is not None else generate_anonymous_cp_name()
 
     return Polytope(convex_subpolytopes=[
         ConvexPolytope(inequalities=inequalities,
-                       equalities=equalities)
+                       equalities=equalities,
+                       name=name)
     ])

@@ -20,7 +20,10 @@ def cylinderize(
 
     cylinderized_polytope = Polytope(convex_subpolytopes=[])
     for convex_subpolytope in polytope.convex_subpolytopes:
-        cylinderized_subpolytope = ConvexPolytope(inequalities=[])
+        cylinderized_subpolytope = ConvexPolytope(
+            inequalities=[],
+            name=convex_subpolytope.name
+        )
         for inequality in convex_subpolytope.inequalities:
             new_row = [0] * parent_dimension
             for source_value, target_index in zip(inequality, coordinate_map):
@@ -106,7 +109,8 @@ def project(polytope, index):
 
         projected_polytope.convex_subpolytopes.append(
             ConvexPolytope(inequalities=zero_inequalities + joined_inequalities,
-                           equalities=zero_equalities)
+                           equalities=zero_equalities,
+                           name=convex_subpolytope.name)
         )
 
     return projected_polytope

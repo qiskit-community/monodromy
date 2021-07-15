@@ -10,6 +10,15 @@ from typing import List
 import qiskit
 
 
+anonymous_convex_polytope_counter = 0
+
+
+def generate_anonymous_cp_name():
+    global anonymous_convex_polytope_counter
+    anonymous_convex_polytope_counter += 1
+    return f"anonymous_convex_polytope_{anonymous_convex_polytope_counter}"
+
+
 @dataclass
 class ConvexPolytopeData:
     """
@@ -26,6 +35,7 @@ class ConvexPolytopeData:
 
     inequalities: List[List[int]]
     equalities: List[List[int]] = field(default_factory=list)
+    name: str = field(default_factory=generate_anonymous_cp_name)
 
     @classmethod
     def inflate(cls, data):

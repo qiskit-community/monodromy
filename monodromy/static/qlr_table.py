@@ -72,9 +72,11 @@ NOTE: This table can be regenerated using
 def ineq_from_qlr(r, k, a, b, c, d):
     """
     Generates a monodromy polytope inequality from the position of a nonzero
-    quantum Littlewood-Richardson coefficient.
+    quantum Littlewood-Richardson coefficient for su_4.
 
-    See (*) in Theorem 23 of /1904.10541
+    See (*) in Theorem 23 of /1904.10541 .
+
+    NOTE: `r` is ignored, since `4 = r + k` makes it redundant with `k`.
     """
 
     # $$d - \sum_{i=1}^r \alpha_{k+i-a_i}
@@ -122,7 +124,10 @@ def generate_qlr_inequalities():
     return qlr_inequalities
 
 
-qlr_polytope = make_convex_polytope(generate_qlr_inequalities())
+qlr_polytope = make_convex_polytope(
+    generate_qlr_inequalities(),
+    name="QLR relations"
+)
 """
 This houses the monodromy polytope, the main static input of the whole calc'n.
 This polytope does _not_ also contain the alcove constraints.

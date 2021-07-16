@@ -153,35 +153,38 @@ def scipy_get_random_vertex(
         )
 
 
-def manual_get_random_vertex(polytope: PolytopeData):
+def manual_get_random_vertex(polytope):
     """
     Returns a single random vertex from `polytope`.
 
     Same as `scipy_get_random_vertex`, but computed without scipy.
     """
-    vertices = []
+    if isinstance(polytope, PolytopeData):
+        paragraphs = copy(polytope.convex_subpolytopes)
+    elif isinstance(polytope, ConvexPolytopeData):
+        paragraphs = [polytope]
+    else:
+        raise TypeError(f"{type(polytope)} is not polytope-like.")
 
-    paragraphs = copy(polytope.convex_subpolytopes)
     shuffle(paragraphs)
     for convex_subpolytope in paragraphs:
         sentences = convex_subpolytope.inequalities + \
                     convex_subpolytope.equalities
+        if len(sentences) == 0:
+            continue
+        dimension = len(sentences[0]) - 1
         shuffle(sentences)
-        for inequalities in combinations(sentences, 3):
+        for inequalities in combinations(sentences, dimension):
             A = np.array([x[1:] for x in inequalities])
             b = np.array([x[0] for x in inequalities])
             try:
                 vertex = np.linalg.inv(-A) @ b
                 if polyhedron_has_element(polytope, vertex):
-                    # vertices.append(vertex)
                     return vertex
             except np.linalg.LinAlgError:
                 pass
 
-    if 0 == len(vertices):
-        raise NoFeasibleSolutions()
-
-    return sample(vertices, 1)[0]
+    raise NoFeasibleSolutions()
 
 
 def nearest_point_plane(point, plane):

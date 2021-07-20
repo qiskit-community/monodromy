@@ -8,6 +8,9 @@ Depository for generic python utility snippets.
 from fractions import Fraction
 from functools import wraps
 from typing import List
+import warnings
+
+import numpy as np
 
 
 epsilon = 1e-6  # Fraction(1, 1_000_000)
@@ -87,3 +90,38 @@ def lcm(*numbers):
     for number in numbers[1:]:
         ret = ret * number // math.gcd(ret, number)
     return ret
+
+
+def nearp(x, y, modulus=np.pi/2, epsilon=epsilon):
+    """
+    Checks whether two points are near each other, accounting for float jitter
+    and wraparound.
+    """
+    return abs(np.mod(abs(x - y), modulus)) < epsilon or \
+           abs(np.mod(abs(x - y), modulus) - modulus) < epsilon
+
+
+def l1_distance(x, y):
+    """
+    Computes the l_1 / Manhattan distance between two coordinates.
+    """
+    return sum([abs(xx - yy) for xx, yy in zip(x, y)])
+
+
+# TODO: THIS IS A STOPGAP!!!
+def safe_arccos(numerator, denominator):
+    """
+    Computes arccos(n/d) with different (better?) numerical stability.
+    """
+    threshold = 0.005
+
+    if abs(numerator) > abs(denominator) and \
+            abs(numerator - denominator) < threshold:
+        return 0.0
+    elif abs(numerator) > abs(denominator) and \
+            abs(numerator + denominator) < threshold:
+        return np.pi
+    else:
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=RuntimeWarning)
+            return np.arccos(numerator / denominator)

@@ -2,6 +2,35 @@
 
 """
 
+from dataclasses import dataclass
+from typing import List
+
+
+@dataclass
+class OperationPolytopeData(CircuitPolytopeData):
+    """
+    A polytope which describes a single gate, together with a precomputed
+    QISKit circuit expressing its canonical form in native operations.
+
+    For example, the native operation sqrtCX on a device would be encoded as an
+    OperationPolytope with the same canonical coordinates as 1/2 XX, and with a
+    `canonical_circuit` slot containing
+
+        H 1 ; sqrtCX ; H 1
+
+    which expresses 1/2 XX in terms of this native multiqubit interaction.
+    """
+    canonical_circuit: qiskit.QuantumCircuit
+
+
+@dataclass
+class OperationPolytope(OperationPolytopeData, CircuitPolytope):
+    """
+    See OperationPolytopeData.
+    """
+    pass
+
+
 def decomposition_hop(
         coverage_set: List[CircuitPolytope],
         operations: List[OperationPolytope],

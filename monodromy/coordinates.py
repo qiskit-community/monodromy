@@ -175,7 +175,7 @@ def unitary_to_monodromy_coordinate(unitary):
 
 def monodromy_to_positive_canonical_coordinate(x, y, z):
     """
-    Given a monodromy alcove coordinate, produces its image as a _unnormalized_
+    Given a monodromy alcove coordinate, produces its image as an unnormalized
     positive canonical coordinate.
     """
     normalizing_factor = np.pi
@@ -188,7 +188,7 @@ def monodromy_to_positive_canonical_coordinate(x, y, z):
 
 def positive_canonical_to_monodromy_coordinate(x, y, z):
     """
-    Converts a normalized positive alcove coordinate to a monodromy alcove
+    Converts an unnormalized positive canonical coordinate to a monodromy
     coordinate.
     """
     normalizing_factor = np.pi
@@ -196,6 +196,16 @@ def positive_canonical_to_monodromy_coordinate(x, y, z):
     return ((x + y - z) / normalizing_factor,
             (x - y + z) / normalizing_factor,
             (-x + y + z) / normalizing_factor)
+
+
+def positive_to_balanced_canonical_coordinate(x, y, z):
+    """
+    Converts a balanced canonical coordinate to a positive one.
+    """
+    if x <= np.pi / 4:
+        return x, y, z
+    else:
+        return tuple(sorted([np.pi / 2 - x, y, -z], reverse=True))
 
 
 def monodromy_to_positive_canonical_polytope(

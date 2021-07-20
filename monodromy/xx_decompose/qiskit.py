@@ -4,9 +4,10 @@ monodromy/xx_decompose/qiskit.py
 Staging ground for a QISKit Terra compilation pass which emits ZX circuits.
 """
 
-from fractions import Fraction
+import heapq
 from math import cos, sin, sqrt
 from operator import itemgetter
+from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -18,95 +19,156 @@ from qiskit.quantum_info.synthesis import OneQubitEulerDecomposer
 from qiskit.quantum_info.synthesis.two_qubit_decompose import \
     TwoQubitWeylDecomposition
 
-from .circuits import apply_reflection, apply_shift, canonical_xx_circuit
-from ..coordinates import monodromy_to_positive_canonical_coordinate, \
-    fidelity_distance, unitary_to_monodromy_coordinate
-from .defaults import get_zx_operations, default_data, default_zx_operation_cost
-from ..io.inflate import filter_scipy_data
-from .scipy import nearest_point_polyhedron, polyhedron_has_element, \
-    optimize_over_polytope
+from ..coordinates import fidelity_distance, \
+    monodromy_to_positive_canonical_coordinate, unitary_to_monodromy_coordinate
 from ..utilities import epsilon
 
-
-# TODO: stick to working with canonical coordinates everywhere, rather than
-#       flipping with monodromy coordinates.
+from .circuits import apply_reflection, apply_shift, canonical_xx_circuit
+from .paths import polytope_from_strengths
+from .scipy import nearest_point_polyhedron, polyhedron_has_element, \
+    optimize_over_polytope
 
 
 class MonodromyZXDecomposer:
     """
-    A class for decomposing 2-qubit unitaries into minimal number of uses of a
-    2-qubit basis gate.
+    A class for optimal decomposition of 2-qubit unitaries into 2-qubit basis
+    gates of XX type (i.e., each locally equivalent to CAN(alpha, 0, 0) for a
+    possibly varying alpha).
 
     Args:
-        operations (List[Polytope]): Bases gates.
-        coverage_set (List[CircuitPolytope]): Coverage regions for different
-            circuit shapes.
-        precomputed_backsolutions (List[CircuitPolytope]): Precomputed solution
-            spaces for peeling off one multiqubit interaction from a circuit
-            template.  Use `calculate_scipy_coverage_set` to generate.
-        euler_basis (str): Basis string provided to OneQubitEulerDecomposer for
-            1Q synthesis.  Defaults to "U3".
-        top_k (int): Retain the top k Euclidean solutions when searching for
+        euler_basis: Basis string provided to OneQubitEulerDecomposer for 1Q
+            synthesis.  Defaults to "U3".
+        top_k: Retain the top k Euclidean solutions when searching for
             approximations.  Zero means retain all the Euclidean solutions;
             negative values cause undefined behavior.
+        embodiments: An dictionary mapping interaction strengths alpha to native
+            circuits which embody the gate CAN(alpha, 0, 0). Strengths are taken
+            to be normalized, so that 1/2 represents the class of a full CX.
+
+    NOTE: If embodiments is not passed, or if an entry is missing, it will
+        be populated as needed using the method _default_embodiment.
     """
 
-    def __init__(self, operations, coverage_set, precomputed_backsolutions,
-                 euler_basis="U3", top_k=4):
-        self.operations, self.coverage_set, self.precomputed_backsolutions = \
-            operations, coverage_set, precomputed_backsolutions
-
+    def __init__(
+            self,
+            euler_basis: str = "U3",
+            top_k: int = 4,
+            embodiments: Optional[dict] = None,
+    ):
         self._decomposer1q = OneQubitEulerDecomposer(euler_basis)
         self.gate = RZXGate(np.pi/2)
         self.top_k = top_k
+        self.embodiments = embodiments if embodiments is not None else {}
 
-    def _rank_euclidean_polytopes(self, target):
+    @staticmethod
+    def _default_embodiment(strength):
+        """
+        If the user does not provide a custom implementation of XX(strength),
+        then this routine defines a default implementation using RZX or CX.
+        """
+        xx_circuit = QuantumCircuit(2)
+
+        if strength == np.pi/2:
+            xx_circuit.h(0)
+            xx_circuit.cx(0, 1)
+            xx_circuit.h(1)
+            xx_circuit.rz(np.pi / 2, 0)
+            xx_circuit.rz(np.pi / 2, 1)
+            xx_circuit.h(1)
+            xx_circuit.h(0)
+            xx_circuit.global_phase += np.pi / 4
+        else:
+            xx_circuit.h(0)
+            xx_circuit.rzx(strength, 0, 1)
+            xx_circuit.h(0)
+
+        return xx_circuit
+
+    # TODO: unify this with `_cheapest_container`
+    def _rank_euclidean_sequences(
+            self, target: List[float], strengths: Dict[float, float]
+    ):
         """
         Returns the closest polytopes to `target` from the coverage set, in
         anti-proximity order: the nearest polytope is last.
 
-        NOTE: `target` is to be provided in monodromy coordinates.
+        NOTE: `target` is to be provided in positive canonical coordinates.
+            `strengths` is a dictionary mapping ZX strengths (that is, pi/2
+            corresponds to a full CX) to costs.
         NOTE: "Proximity" has a funny meaning.  In each polytope, we find the
             nearest point in Euclidean distance, then sort the polytopes by the
             trace distances from those points to the target (+ polytope cost).
         """
+        priority_queue = []
         polytope_costs = []
-        for gate_polytope in self.coverage_set:
+        heapq.heappush(priority_queue, (0, []))
+
+        while True:
+            sequence_cost, sequence = heapq.heappop(priority_queue)
+
+            gate_polytope = polytope_from_strengths(
+                [x / 2 for x in sequence], scale_factor=np.pi / 2
+            )
             candidate_point = nearest_point_polyhedron(target, gate_polytope)
             candidate_cost = 1 - fidelity_distance(target, candidate_point)
-            polytope_costs.append(
-                (gate_polytope, candidate_cost + gate_polytope.cost)
-            )
+            polytope_costs.append((sequence, candidate_cost + sequence_cost))
+
             if polyhedron_has_element(gate_polytope, target):
                 break
+
+            for strength, extra_cost in strengths.items():
+                if len(sequence) == 0 or strength <= sequence[-1]:
+                    heapq.heappush(
+                        priority_queue,
+                        (sequence_cost + extra_cost, sequence + [strength])
+                    )
 
         polytope_costs = sorted(polytope_costs, key=lambda x: x[1],
                                 reverse=True)
 
-        return [x[0] for x in polytope_costs]
+        return polytope_costs
 
-    def _first_containing_polytope(self, target):
+    @staticmethod
+    def _cheapest_container(available_strengths, canonical_coordinate):
         """
-        Finds the cheapest coverage polytope to which the `target` belongs.
+        Finds the cheapest sequence of `available_strengths` for which
+        `canonical_coordinate` belongs to the associated interaction polytope.
 
-        NOTE: `target` is to be provided in monodromy coordinates.
+        `canonical_coordinate` is a positive canonical coordinate. `strengths`
+        is a dictionary mapping the available strengths, normalized so that pi/2
+        represents CX = RZX(pi/2), to their (infidelity) costs.
         """
-        for gate_polytope in self.coverage_set:
-            if polyhedron_has_element(gate_polytope, target):
-                return gate_polytope
+        priority_queue = []
+        heapq.heappush(priority_queue, (0, []))
+
+        while True:
+            cost, sequence = heapq.heappop(priority_queue)
+
+            strength_polytope = polytope_from_strengths(
+                [x / 2 for x in sequence], scale_factor=np.pi / 2
+            )
+            if polyhedron_has_element(strength_polytope, canonical_coordinate):
+                return sequence
+
+            for strength, extra_cost in available_strengths.items():
+                if len(sequence) == 0 or strength <= sequence[-1]:
+                    heapq.heappush(priority_queue,
+                                   (cost + extra_cost, sequence + [strength]))
 
     @staticmethod
     def _build_objective(target):
         """
         Constructs the functional which measures the trace distance to `target`.
+
+        NOTE: `target` is in unnormalized positive canonical coordinates.
         """
-        a0, b0, c0 = monodromy_to_positive_canonical_coordinate(*target)
+        a0, b0, c0 = target
 
         def objective(array):
             return -fidelity_distance(target, array)
 
         def jacobian(array):
-            a, b, c = monodromy_to_positive_canonical_coordinate(*array)
+            a, b, c = array
 
             # squares
             ca2, sa2 = cos(a0 - a) ** 2, sin(a0 - a) ** 2
@@ -123,8 +185,7 @@ class MonodromyZXDecomposer:
             db = -(c2a + c2c) * s2b / (5 * sqrt_sum)
             dc = -(c2a + c2b) * s2c / (5 * sqrt_sum)
 
-            # gradient in monodromy coordinates
-            return np.pi / 2 * np.array([da + db, da + dc, db + dc])
+            return np.array([da, db, dc])
 
         return {
             "objective": objective,
@@ -132,32 +193,36 @@ class MonodromyZXDecomposer:
             # "hessian": hessian,
         }
 
-    def _best_decomposition(self, target):
+    def _best_decomposition(self, target, strengths):
         """
         Searches over different circuit templates for the least costly
         embodiment of the canonical coordinate `target`.  Returns a dictionary
         with keys "cost", "point", and "operations".
 
-        NOTE: Expects `target` to be supplied in monodromy coordinates.
+        NOTE: Expects `target` in positive canonical coordinates.
+        NOTE: `strengths` is a dictionary mapping normalized XX strengths (that
+              is, 1/2 corresponds to a full CX) to costs.
         """
 
-        ranked_polytopes = self._rank_euclidean_polytopes(target)
-        ranked_polytopes = ranked_polytopes[-self.top_k:]
+        ranked_sequences = self._rank_euclidean_sequences(target, strengths)
+        ranked_sequences = ranked_sequences[-self.top_k:]
 
-        best_cost = 0.8
+        best_cost = 0.8  # a/k/a np.inf
         best_point = [0, 0, 0]
-        best_polytope = None
+        best_sequence = []
         objective, jacobian = itemgetter("objective", "jacobian")(
             self._build_objective(target)
         )
 
-        for gate_polytope, _ in sorted([(p, p.cost) for p in ranked_polytopes],
-                                       key=lambda x: x[1]):
+        for sequence, cost in sorted(ranked_sequences, key=lambda x: x[1]):
             # short-circuit in the case of exact membership
+            gate_polytope = polytope_from_strengths(
+                [x / 2 for x in sequence], scale_factor=np.pi / 2
+            )
             if polyhedron_has_element(gate_polytope, target):
-                if gate_polytope.cost < best_cost:
-                    best_cost, best_point, best_polytope = \
-                        gate_polytope.cost, target, gate_polytope
+                if cost < best_cost:
+                    best_cost, best_point, best_sequence = \
+                        cost, target, sequence
                 break
 
             # otherwise, numerically optimize the trace distance
@@ -168,18 +233,15 @@ class MonodromyZXDecomposer:
                     # hessian=hessian,
                 )
 
-                if solution.fun + 1 + gate_polytope.cost < best_cost:
-                    best_cost = solution.fun + 1 + gate_polytope.cost
+                if (solution.fun + 1) + cost < best_cost:
+                    best_cost = (solution.fun + 1) + cost
                     best_point = solution.x
-                    best_polytope = gate_polytope
-
-        if best_polytope is None:
-            raise ValueError("Failed to find a match.")
+                    best_sequence = sequence
 
         return {
             "point": best_point,
             "cost": best_cost,
-            "operations": best_polytope.operations
+            "sequence": best_sequence
         }
 
     def num_basis_gates(self, unitary):
@@ -188,12 +250,112 @@ class MonodromyZXDecomposer:
 
         NOTE: Used by ConsolidateBlocks.
         """
+        strengths = self._strength_to_infidelity(1.0)
         target = unitary_to_monodromy_coordinate(unitary)[:3]
-        best_polytope = self._rank_euclidean_polytopes(target)[-1]
-        return len(best_polytope.operations)
+        target = monodromy_to_positive_canonical_coordinate(*target)
+        best_sequence, _ = self._rank_euclidean_sequences(target, strengths)[-1]
+        return len(best_sequence)
+
+    def _strength_to_infidelity(self, basis_fidelity):
+        """
+        Converts a dictionary mapping ZX strengths to fidelities to a dictionary
+        mapping ZX strengths to infidelities. Also supports some of the other
+        formats QISKit uses: injects a default set of infidelities for CX, CX/2,
+        and CX/3 if None is supplied, or extends a single float infidelity over
+        CX, CX/2, and CX/3 if only a single float is supplied.
+        """
+
+        if basis_fidelity is None or isinstance(basis_fidelity, float):
+            if isinstance(basis_fidelity, float):
+                slope, offset = 1 - basis_fidelity, 1e-10
+            else:
+                # some reasonable default values
+                slope, offset = (64 * 90) / 1000000, 909 / 1000000 + 1 / 1000
+            return {
+                strength: slope * strength / (np.pi / 2) + offset
+                for strength in [np.pi / 2, np.pi / 4, np.pi / 6]
+            }
+        elif isinstance(basis_fidelity, dict):
+            return {
+                strength: 1 - fidelity
+                for (strength, fidelity) in basis_fidelity.items()
+            }
+
+        raise TypeError("Unknown basis_fidelity payload.")
+
+    def __call__(self, u, basis_fidelity=None, approximate=True, chatty=False):
+        """
+        Fashions a circuit which (perhaps `approximate`ly) models the special
+        unitary operation `u`, using the circuit templates supplied at
+        initialization.  The routine uses `basis_fidelity` to select the optimal
+        circuit template, including when performing exact synthesis; the
+        contents of `basis_fidelity` is a dictionary mapping interaction
+        strengths (scaled so that CX = RZX(pi/2) corresponds to pi/2) to circuit
+        fidelities.
+        """
+        strength_to_infidelity = self._strength_to_infidelity(basis_fidelity)
+
+        # get the associated _positive_ canonical coordinate
+        weyl_decomposition = TwoQubitWeylDecomposition(u)
+        target = [getattr(weyl_decomposition, x) for x in ("a", "b", "c")]
+        if target[-1] < -epsilon:
+            target = [np.pi / 2 - target[0], target[1], -target[2]]
+
+        # scan for the best point
+        if approximate:
+            best_point, best_sequence = \
+                itemgetter("point", "sequence")(self._best_decomposition(
+                    target, strengths=strength_to_infidelity
+                ))
+        else:
+            best_point, best_sequence = target, self._cheapest_container(strength_to_infidelity, target)
+        # build the circuit building this canonical gate
+        embodiments = {
+            k: self.embodiments.get(k, self._default_embodiment(k))
+            for k, v in strength_to_infidelity.items()
+        }
+        circuit = canonical_xx_circuit(best_point, best_sequence, embodiments)
+
+        # change to positive canonical coordinates
+        if weyl_decomposition.c >= -epsilon:
+            # if they're the same...
+            corrected_circuit = QuantumCircuit(2)
+            corrected_circuit.rz(np.pi, [0])
+            corrected_circuit.compose(circuit, [0, 1], inplace=True)
+            corrected_circuit.rz(-np.pi, [0])
+            circuit = corrected_circuit
+        else:
+            # else they're in the "positive" scissors part...
+            corrected_circuit = QuantumCircuit(2)
+            _, source_reflection, reflection_phase_shift = apply_reflection(
+                "reflect XX, ZZ", [0, 0, 0]
+            )
+            _, source_shift, shift_phase_shift = apply_shift(
+                "X shift", [0, 0, 0]
+            )
+
+            corrected_circuit.compose(source_reflection.inverse(), inplace=True)
+            corrected_circuit.rz(np.pi, [0])
+            corrected_circuit.compose(circuit, [0, 1], inplace=True)
+            corrected_circuit.rz(-np.pi, [0])
+            corrected_circuit.compose(source_shift.inverse(), inplace=True)
+            corrected_circuit.compose(source_reflection, inplace=True)
+            corrected_circuit.global_phase += np.pi / 2
+
+            circuit = corrected_circuit
+
+        circ = QuantumCircuit(2, global_phase=weyl_decomposition.global_phase)
+
+        circ.append(UnitaryGate(weyl_decomposition.K2r), [0])
+        circ.append(UnitaryGate(weyl_decomposition.K2l), [1])
+        circ.compose(circuit, [0, 1], inplace=True)
+        circ.append(UnitaryGate(weyl_decomposition.K1r), [0])
+        circ.append(UnitaryGate(weyl_decomposition.K1l), [1])
+
+        return self._decompose_1q(circ)
 
     # TODO: remit this to `optimize_1q_decomposition.py` in qiskit
-    def decompose_1q(self, circuit):
+    def _decompose_1q(self, circuit):
         """
         Gather the one-qubit substrings in a two-qubit circuit and apply the
         local decomposer.
@@ -222,107 +384,3 @@ class MonodromyZXDecomposer:
         output_circuit.compose(circ_1, [1], inplace=True)
 
         return output_circuit
-
-    def __call__(self, u, basis_fidelity=None, approximate=True, chatty=False):
-        """
-        Fashions a circuit which (perhaps `approximate`ly) models the special
-        unitary operation `u`, using the circuit templates supplied at
-        initialization.
-
-        NOTE: Ignores `basis_fidelity` in favor of the operation tables loaded
-              at initialization time.
-        """
-        target = unitary_to_monodromy_coordinate(u)[:3]
-        best_point, best_cost, best_operations = \
-            itemgetter("point", "cost", "operations")(
-                self._best_decomposition(target)
-            )
-
-        if chatty:
-            print(f"Overall best: {best_point} hits {best_cost} via "
-                  f"{'.'.join(best_operations)}")
-            print(f"In canonical coordinates: "
-                  f"{monodromy_to_positive_canonical_coordinate(*best_point)} "
-                  f"from {monodromy_to_positive_canonical_coordinate(*target)}")
-
-        circuit = canonical_xx_circuit(
-            best_point,
-            self.coverage_set, self.precomputed_backsolutions, self.operations
-        )
-
-        weyl_decomposition = TwoQubitWeylDecomposition(u)
-
-        if chatty:
-            print([weyl_decomposition.a,
-                   weyl_decomposition.b,
-                   weyl_decomposition.c])
-            print(monodromy_to_positive_canonical_coordinate(*target))
-
-        # change to positive canonical coordinates
-        if abs(weyl_decomposition.c -
-               monodromy_to_positive_canonical_coordinate(*target)[2]) < epsilon:
-            # if they're the same...
-            corrected_circuit = QuantumCircuit(2)
-            corrected_circuit.rz(np.pi, [0])
-            corrected_circuit.compose(circuit, [0, 1], inplace=True)
-            corrected_circuit.rz(-np.pi, [0])
-            circuit = corrected_circuit
-        else:
-            # else they're in the "positive" scissors part...
-            corrected_circuit = QuantumCircuit(2)
-            _, source_reflection, reflection_phase_shift = apply_reflection(
-                "reflect XX, ZZ", [0, 0, 0]
-            )
-            _, source_shift, shift_phase_shift = apply_shift(
-                "X shift", [0, 0, 0]
-            )
-
-            corrected_circuit.compose(source_reflection.inverse(), inplace=True)
-            corrected_circuit.rz(np.pi, [0])
-            corrected_circuit.compose(circuit, [0, 1], inplace=True)
-            corrected_circuit.rz(-np.pi, [0])
-            corrected_circuit.compose(source_shift.inverse(), inplace=True)
-            corrected_circuit.compose(source_reflection, inplace=True)
-            corrected_circuit.global_phase += np.pi / 2
-
-            circuit = corrected_circuit
-
-            if chatty:
-                import qiskit.quantum_info
-                with np.printoptions(precision=3, suppress=True):
-                        weyl_circuit = QuantumCircuit(q)
-                        weyl_decomposition._weyl_gate(False, weyl_circuit, 1e-10)
-                        print(qiskit.quantum_info.Operator(weyl_circuit).data)
-                        print(qiskit.quantum_info.Operator(circuit).data)
-                        print("====")
-
-        circ = QuantumCircuit(2, global_phase=weyl_decomposition.global_phase)
-
-        circ.append(UnitaryGate(weyl_decomposition.K2r), [0])
-        circ.append(UnitaryGate(weyl_decomposition.K2l), [1])
-        circ.compose(circuit, [0, 1], inplace=True)
-        circ.append(UnitaryGate(weyl_decomposition.K1r), [0])
-        circ.append(UnitaryGate(weyl_decomposition.K1l), [1])
-
-        return self.decompose_1q(circ)
-
-
-def monodromy_decomposer_from_approximation_degree(
-        euler_basis="U3",
-        approximation_degree=1.0,
-        flat_rate=1e-10,
-):
-    """
-    `euler_basis`: Basis into which to decompose single-qubit gates.
-    `approximation_degree`: Linear fidelity rate.  The cost of a full ZX gate
-        is taken to be (1 - approximation_degree) + flat_rate.
-    `flat_rate`: Affine offset in a linear error model. Undefined behavior when
-        set to zero; OK to use a small value like 1e-10.
-    """
-    cost_table = {
-        Fraction(1, k): flat_rate + 1 / k * (1 - approximation_degree)
-        for k in [1, 2, 3]
-    }
-    operations = get_zx_operations(cost_table)
-    inflated_data = filter_scipy_data(operations, **default_data, chatty=False)
-    return MonodromyZXDecomposer(**inflated_data, euler_basis=euler_basis)

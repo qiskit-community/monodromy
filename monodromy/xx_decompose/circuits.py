@@ -4,7 +4,7 @@ monodromy/xx_decompose/circuits.py
 Tools for building optimal circuits out of XX interactions.
 
 Inputs:
- + A set of native operations, described as `OperationPolytope`s.
+ + A set of native XX operations, described as strengths.
  + A right-angled path, computed using the methods in `xx_decompose/paths.py`.
 
 Output:
@@ -17,7 +17,6 @@ These routines make a variety of assumptions, not yet proven:
  + Right-angled paths always exist.
 """
 
-from dataclasses import dataclass
 from functools import reduce
 import math
 import numpy as np
@@ -25,77 +24,13 @@ from operator import itemgetter
 import warnings
 
 import qiskit
-from qiskit.circuit.library import RXGate, RYGate, RZGate
-import qiskit.quantum_info
 
-from ..coordinates import monodromy_to_positive_canonical_coordinate
-from ..coverage import CircuitPolytope
 from ..exceptions import NoBacksolution
-from ..io.base import OperationPolytopeData
-from .paths import single_unordered_decomposition_hop
-from .scipy import polyhedron_has_element
 from ..static.matrices import canonical_matrix, rz_matrix
-from ..utilities import epsilon
-
-
-@dataclass
-class OperationPolytope(OperationPolytopeData, CircuitPolytope):
-    """
-    See OperationPolytopeData.
-    """
-    pass
-
-
-def nearp(x, y, modulus=np.pi/2, epsilon=1e-2):
-    """
-    Checks whether two points are near each other, accounting for float jitter
-    and wraparound.
-    """
-    return abs(np.mod(abs(x - y), modulus)) < epsilon or \
-           abs(np.mod(abs(x - y), modulus) - modulus) < epsilon
-
-
-def l1_distance(x, y):
-    """
-    Computes the l_1 / Manhattan distance between two coordinates.
-    """
-    return sum([abs(xx - yy) for xx, yy in zip(x, y)])
-
-
-# NOTE: if `point_polytope` were an actual point, you could use .has_element .
-def cheapest_container(coverage_set, point_polytope):
-    """
-    Finds the least costly coverage polytope in `coverage_set` which intersects
-    `point_polytope` nontrivially.
-    """
-    best_cost = float("inf")
-    working_polytope = None
-
-    for polytope in coverage_set:
-        if polytope.cost < best_cost and polytope.contains(point_polytope):
-            working_polytope = polytope
-            best_cost = polytope.cost
-
-    return working_polytope
-
-
-# TODO: THIS IS A STOPGAP!!!
-def safe_arccos(numerator, denominator):
-    """
-    Computes arccos(n/d) with different (better?) numerical stability.
-    """
-    threshold = 0.005
-
-    if abs(numerator) > abs(denominator) and \
-            abs(numerator - denominator) < threshold:
-        return 0.0
-    elif abs(numerator) > abs(denominator) and \
-            abs(numerator + denominator) < threshold:
-        return np.pi
-    else:
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=RuntimeWarning)
-            return np.arccos(numerator / denominator)
+from ..utilities import nearp, safe_arccos
+from .paths import decomposition_hop
+from .weyl import apply_reflection, apply_shift, canonical_rotation_circuit, \
+    reflection_options, shift_options
 
 
 def decompose_xxyy_into_xxyy_xx(a_target, b_target, a1, b1, a2):
@@ -132,10 +67,10 @@ def decompose_xxyy_into_xxyy_xx(a_target, b_target, a1, b1, a2):
     ])
 
     phase_solver = np.array([
-        [1 / 4, 1 / 4, 1 / 4, 1 / 4, ],
-        [1 / 4, -1 / 4, -1 / 4, 1 / 4, ],
-        [1 / 4, 1 / 4, -1 / 4, -1 / 4, ],
-        [1 / 4, -1 / 4, 1 / 4, -1 / 4, ],
+        [1 / 4,  1 / 4,  1 / 4,  1 / 4, ],
+        [1 / 4, -1 / 4, -1 / 4,  1 / 4, ],
+        [1 / 4,  1 / 4, -1 / 4, -1 / 4, ],
+        [1 / 4, -1 / 4,  1 / 4, -1 / 4, ],
     ])
     inner_phases = [
         np.angle(middle_matrix[0, 0]),
@@ -161,139 +96,25 @@ def decompose_xxyy_into_xxyy_xx(a_target, b_target, a1, b1, a2):
     return r, s, u, v, x, y
 
 
-reflection_options = {
-    "no reflection":  ([ 1,  1,  1],  1, []),        # we checked this phase
-    "reflect XX, YY": ([-1, -1,  1],  1, [RZGate]),  # we checked this phase
-    "reflect XX, ZZ": ([-1,  1, -1],  1, [RYGate]),  # we checked this phase, but only in a pair with Y shift
-    "reflect YY, ZZ": ([ 1, -1, -1], -1, [RXGate]),  # unchecked
-}
-"""
-A table of available reflection transformations on canonical coordinates.
-Entries take the form
-
-    readable_name: (reflection scalars, global phase, [gate constructors]),
-    
-where reflection scalars (a, b, c) model the map (x, y, z) |-> (ax, by, cz),
-global phase is a complex unit, and gate constructors are applied in sequence
-and by conjugation to the first qubit and are passed pi as a parameter. 
-"""
-
-
-shift_options = {
-    "no shift":    ([0, 0, 0],   1, []),                # we checked this phase
-    "Z shift":     ([0, 0, 1],  1j, [RZGate]),          # we checked this phase
-    "Y shift":     ([0, 1, 0], -1j, [RYGate]),          # we checked this phase, but only in a pair with reflect XX, ZZ
-    "Y,Z shift":   ([0, 1, 1],  -1, [RYGate, RZGate]),  # unchecked
-    "X shift":     ([1, 0, 0], -1j, [RXGate]),          # we checked this phase
-    "X,Z shift":   ([1, 0, 1],   1, [RXGate, RZGate]),  # we checked this phase
-    "X,Y shift":   ([1, 1, 0],  -1, [RXGate, RYGate]),  # unchecked
-    "X,Y,Z shift": ([1, 1, 1], -1j, [RXGate, RYGate, RZGate]),  # unchecked
-}
-"""
-A table of available shift transformations on canonical coordinates.  Entries
-take the form
-
-    readable name: (shift scalars, global phase, [gate constructors]),
-    
-where shift scalars model the map
-
-    (x, y, z) |-> (x + a pi / 2, y + b pi / 2, z + c pi / 2) ,
-
-global phase is a complex unit, and gate constructors are applied to the first
-and second qubits and are passed pi as a parameter.
-"""
-
-
-def apply_reflection(reflection_name, coordinate):
-    """
-    Given a reflection type and a canonical coordinate, applies the reflection
-    and describes a circuit which enacts the reflection + a global phase shift.
-    """
-    reflection_scalars, reflection_phase_shift, source_reflection_gates = \
-        reflection_options[reflection_name]
-    reflected_coord = [x * y for x, y in zip(reflection_scalars, coordinate)]
-    source_reflection = qiskit.QuantumCircuit(2)
-    for gate in source_reflection_gates:
-        source_reflection.append(gate(np.pi), [0])
-
-    return reflected_coord, source_reflection, reflection_phase_shift
-
-
-# TODO: I wonder if the global phase shift can be attached to the circuit...
-def apply_shift(shift_name, coordinate):
-    """
-    Given a shift type and a canonical coordinate, applies the shift and
-    describes a circuit which enacts the shift + a global phase shift.
-    """
-    shift_scalars, shift_phase_shift, source_shift_gates = \
-        shift_options[shift_name]
-    shifted_coord = [np.pi / 2 * x + y for x, y in zip(shift_scalars, coordinate)]
-
-    source_shift = qiskit.QuantumCircuit(2)
-    for gate in source_shift_gates:
-        source_shift.append(gate(np.pi), [0])
-        source_shift.append(gate(np.pi), [1])
-
-    return shifted_coord, source_shift, shift_phase_shift
-
-
-def canonical_rotation_circuit(first_index, second_index):
-    """
-    Given a pair of distinct indices 0 ≤ (first_index, second_index) ≤ 2,
-    produces a two-qubit circuit which rotates a canonical gate
-
-        a0 XX + a1 YY + a2 ZZ
-
-    into
-
-        a[first] XX + a[second] YY + a[other] ZZ .
-    """
-    conj = qiskit.QuantumCircuit(2)
-
-    if (0, 1) == (first_index, second_index):
-        pass  # no need to do anything
-    elif (0, 2) == (first_index, second_index):
-        conj.rx(-np.pi / 2, [0])
-        conj.rx(np.pi / 2, [1])
-    elif (1, 0) == (first_index, second_index):
-        conj.rz(-np.pi / 2, [0])
-        conj.rz(-np.pi / 2, [1])
-    elif (1, 2) == (first_index, second_index):
-        conj.rz(np.pi / 2, [0])
-        conj.rz(np.pi / 2, [1])
-        conj.ry(np.pi / 2, [0])
-        conj.ry(-np.pi / 2, [1])
-    elif (2, 0) == (first_index, second_index):
-        conj.rz(np.pi / 2, [0])
-        conj.rz(np.pi / 2, [1])
-        conj.rx(np.pi / 2, [0])
-        conj.rx(-np.pi / 2, [1])
-    elif (2, 1) == (first_index, second_index):
-        conj.ry(np.pi / 2, [0])
-        conj.ry(-np.pi / 2, [1])
-
-    return conj
-
-
 def xx_circuit_step(
-        source_monodromy_coord, operation, target_monodromy_coord,
-        canonical_coordinate_table,
-        canonical_gate_table
+        source, strength, target, embodiment
 ):
     """
     Builds a single step in an XX-based circuit.
+
+    `source` and `target` are positive canonical coordinates; `strength` is the
+    interaction strength at this step in the circuit as a canonical coordinate
+    (so that CX = RZX(pi/2) corresponds to pi/4); and `embodiment` is a QISKit
+    circuit which enacts the canonical gate of the prescribed interaction
+    `strength`.
     """
-    source_canonical_coord, target_canonical_coord = [
-        monodromy_to_positive_canonical_coordinate(*x)
-        for x in [source_monodromy_coord, target_monodromy_coord]
-    ]
 
     permute_source_for_overlap, permute_target_for_overlap = None, None
 
     # apply all possible reflections, shifts to the source
     for source_reflection_name in reflection_options.keys():
         reflected_source_coord, source_reflection, reflection_phase_shift = \
-            apply_reflection(source_reflection_name, source_canonical_coord)
+            apply_reflection(source_reflection_name, source)
         for source_shift_name in shift_options.keys():
             shifted_source_coord, source_shift, shift_phase_shift = \
                 apply_shift(source_shift_name, reflected_source_coord)
@@ -303,7 +124,7 @@ def xx_circuit_step(
             for i, j in [(0, 0), (0, 1), (0, 2),
                          (1, 0), (1, 1), (1, 2),
                          (2, 0), (2, 1), (2, 2)]:
-                if nearp(shifted_source_coord[i], target_canonical_coord[j],
+                if nearp(shifted_source_coord[i], target[j],
                          modulus=np.pi):
                     source_shared, target_shared = i, j
                     break
@@ -318,11 +139,11 @@ def xx_circuit_step(
 
             # check for arccos validity
             r, s, u, v, x, y = decompose_xxyy_into_xxyy_xx(
-                float(target_canonical_coord[target_first]),
-                float(target_canonical_coord[target_second]),
+                float(target[target_first]),
+                float(target[target_second]),
                 float(shifted_source_coord[source_first]),
                 float(shifted_source_coord[source_second]),
-                float(canonical_coordinate_table[operation][0]),
+                float(strength),
             )
             if any([math.isnan(val) for val in (r, s, u, v, x, y)]):
                 continue
@@ -343,6 +164,11 @@ def xx_circuit_step(
     if permute_source_for_overlap is None:
         raise NoBacksolution()
 
+    if (source_reflection_name != "no reflection" or
+            source_shift_name != "no shift"):
+        warnings.warn(f"Needed to use an extra Weyl reflection: "
+                      f"{source_reflection_name} + {source_shift_name}.")
+
     prefix_circuit, affix_circuit = \
         qiskit.QuantumCircuit(2), qiskit.QuantumCircuit(2)
 
@@ -358,7 +184,7 @@ def xx_circuit_step(
     # the middle prefix layer comes from the local Z rolls.
     prefix_circuit.rz(2 * x, [0])
     prefix_circuit.rz(2 * y, [1])
-    prefix_circuit.compose(canonical_gate_table[operation], inplace=True)
+    prefix_circuit.compose(embodiment, inplace=True)
     prefix_circuit.rz(2 * u, [0])
     prefix_circuit.rz(2 * v, [1])
     # the innermost prefix layer is source_reflection, shifted by source_shift,
@@ -386,88 +212,46 @@ def xx_circuit_step(
     }
 
 
-def canonical_xx_circuit(
-        target, coverage_set, precomputed_backsolutions, operations
-):
+def canonical_xx_circuit(target, strength_sequence, basis_embodiments):
     """
-    Assembles a QISKit circuit from XX-type interactions, as enumerated in
-    `operations`, which emulates the canonical gate at monodromy coordinates
-    `target`.  `coverage_set` and `precomputed_backsolutions` are calculated
-    as in `defaults.py`.
+    Assembles a QISKit circuit from a specified `strength_sequence` of XX-type
+    interactions which emulates the canonical gate at canonical coordinate
+    `target`.  The circuits supplied by `basis_embodiments` are used to
+    instantiate the individual XX actions.
+
+    NOTE: The elements of `strength_sequence` are expected to be normalized so
+        that np.pi/2 corresponds to RZX(np.pi/2) = CX; `target` is taken to be
+        a positive canonical coordinate; and `basis_embodiments` maps
+        `strength_sequence` elements to circuits which instantiate these gates.
     """
-
-    canonical_coordinate_table = {
-        operation.operations[0]: monodromy_to_positive_canonical_coordinate(
-            *[next(-eq[0] / eq[1 + j]
-                   for eq in operation.convex_subpolytopes[0].equalities
-                   if eq[1 + j] != 0)
-              for j in range(3)]
-        )
-        for operation in operations
-    }
-
-    # make sure that all the operations are of XX-interaction type
-    assert all([abs(c[1]) < epsilon and abs(c[2]) < epsilon
-                for c in canonical_coordinate_table.values()])
-
-    canonical_gate_table = {
-        operation.operations[0]: operation.canonical_circuit
-        for operation in operations
-    }
-
-    # find outermost polytope.
-    # NOTE: In practice, this computation has already been done.
-    target_polytope = None
-    best_cost = float("inf")
-    for polytope in coverage_set:
-        if polytope.cost < best_cost and polyhedron_has_element(
-                polytope, target):
-            target_polytope = polytope
-            best_cost = polytope.cost
-
-    if target_polytope is None:
-        raise ValueError(f"{target} not contained in coverage set.")
-
-    operations_remaining = target_polytope.operations
-
     # empty decompositions are easy!
-    if 0 == len(operations_remaining):
+    if 0 == len(strength_sequence):
         return qiskit.QuantumCircuit(2)
 
     # assemble the prefix / affix circuits
     prefix_circuit, affix_circuit = \
         qiskit.QuantumCircuit(2), qiskit.QuantumCircuit(2)
-    while 1 < len(operations_remaining):
-        try:
-            next_target, next_operations_remaining, hop = \
-                itemgetter("ancestor", "operations_remaining", "hop")(
-                    single_unordered_decomposition_hop(
-                        target, operations_remaining, precomputed_backsolutions
-                    )
-                )
+    while 1 < len(strength_sequence):
+        source = decomposition_hop(target, strength_sequence)
+        strength = strength_sequence[-1]
 
-            preceding_prefix_circuit, preceding_affix_circuit = \
-                itemgetter("prefix_circuit", "affix_circuit")(xx_circuit_step(
-                    *hop,
-                    canonical_coordinate_table,
-                    canonical_gate_table
-                ))
+        preceding_prefix_circuit, preceding_affix_circuit = \
+            itemgetter("prefix_circuit", "affix_circuit")(xx_circuit_step(
+                source, strength / 2, target, basis_embodiments[strength]
+            ))
 
-            prefix_circuit.compose(preceding_prefix_circuit, inplace=True)
-            affix_circuit.compose(preceding_affix_circuit, inplace=True,
-                                  front=True)
+        prefix_circuit.compose(preceding_prefix_circuit, inplace=True)
+        affix_circuit.compose(preceding_affix_circuit, inplace=True,
+                              front=True)
 
-            target = next_target
-            operations_remaining = next_operations_remaining
-        except NoBacksolution:
-            pass
+        target, strength_sequence = source, strength_sequence[:-1]
 
     circuit = prefix_circuit
 
     # lastly, deal with the "leading" gate.
-    if target[0] <= 1 / 4:
+    if target[0] <= np.pi / 4:
         circuit.compose(
-            canonical_gate_table[operations_remaining[0]],
+            basis_embodiments[strength_sequence[0]],
             inplace=True
         )
     else:
@@ -477,7 +261,7 @@ def canonical_xx_circuit(
             apply_shift("X shift", [0, 0, 0])
 
         circuit += source_reflection
-        circuit.compose(canonical_gate_table[operations_remaining[0]],
+        circuit.compose(basis_embodiments[strength_sequence[0]],
                         inplace=True)
         circuit += source_reflection.inverse()
         circuit += source_shift

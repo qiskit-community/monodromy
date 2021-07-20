@@ -7,7 +7,7 @@ Utilities for interacting with polytope data through scipy / by hand.
 from copy import copy
 from itertools import combinations
 import math
-from random import sample, shuffle
+from random import shuffle
 from typing import Optional, Callable
 import warnings
 
@@ -90,6 +90,7 @@ def polyhedron_has_element(polytope, point):
         for inequality in cp.inequalities:
             value = inequality[0] + point[0] * inequality[1] + \
                 point[1] * inequality[2] + point[2] * inequality[3]
+            # print(f"Trying inequality {inequality}: {value}")
             # this inequality has to be (near) positive
             if -epsilon > value:
                 violated = True
@@ -99,12 +100,27 @@ def polyhedron_has_element(polytope, point):
         for equality in cp.equalities:
             value = equality[0] + point[0] * equality[1] + \
                 point[1] * equality[2] + point[2] * equality[3]
+            # print(f"Trying equality {equality}: {value}")
             # this equality has to be (near) zero)
             if epsilon < abs(value):
                 violated = True
         if not violated:
             return True
     return False
+
+
+def polytope_has_element(polytope, point):
+    """
+    A standalone variant of Polytope.has_element.
+    """
+    return (all([-epsilon <= inequality[0] +
+                 sum(x * y for x, y in
+                     zip(point, inequality[1:]))
+                 for inequality in polytope.inequalities]) and
+            all([abs(equality[0] + sum(x * y for x, y in
+                                       zip(point, equality[1:])))
+                 <= epsilon
+                 for equality in polytope.equalities]))
 
 
 def scipy_get_random_vertex(
@@ -179,7 +195,7 @@ def manual_get_random_vertex(polytope):
             b = np.array([x[0] for x in inequalities])
             try:
                 vertex = np.linalg.inv(-A) @ b
-                if polyhedron_has_element(polytope, vertex):
+                if polytope_has_element(convex_subpolytope, vertex):
                     return vertex
             except np.linalg.LinAlgError:
                 pass

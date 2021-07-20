@@ -223,9 +223,9 @@ def build_coverage_set(
             volume = new_polytope.volume
             if volume.dimension == 3:
                 volume = volume.volume / monodromy_alcove_c2.volume.volume
-                print(f"and volume {float(100 * volume):6.2f}%")
+                print(f"and Euclidean volume {float(100 * volume):6.2f}%")
             else:
-                print(f"and volume {0:6.2f}%")
+                print(f"and Euclidean volume {0:6.2f}%")
         
         # if this polytope is NOT of maximum volume,
         if monodromy_alcove_c2.volume > new_polytope.volume:

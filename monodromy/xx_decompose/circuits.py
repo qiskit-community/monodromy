@@ -11,10 +11,6 @@ Output:
  + A circuit which implements the target operation (expressed exactly as the
    exponential of `a XX + b YY + c ZZ`) using the native operations and local
    gates.
-
-These routines make a variety of assumptions, not yet proven:
- + CircuitPolytopes for XX interactions are permutation invariant.
- + Right-angled paths always exist.
 """
 
 from functools import reduce

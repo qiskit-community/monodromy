@@ -24,7 +24,7 @@ from ..coordinates import fidelity_distance, \
 from ..utilities import epsilon
 
 from .circuits import apply_reflection, apply_shift, canonical_xx_circuit
-from .paths import polytope_from_strengths
+from ..static.interference import polytope_from_strengths
 from .scipy import nearest_point_polyhedron, polyhedron_has_element, \
     optimize_over_polytope
 
@@ -352,7 +352,9 @@ class MonodromyZXDecomposer:
         circ.append(UnitaryGate(weyl_decomposition.K1r), [0])
         circ.append(UnitaryGate(weyl_decomposition.K1l), [1])
 
-        return self._decompose_1q(circ)
+        # return self._decompose_1q(circ)
+
+        return circ
 
     # TODO: remit this to `optimize_1q_decomposition.py` in qiskit
     def _decompose_1q(self, circuit):

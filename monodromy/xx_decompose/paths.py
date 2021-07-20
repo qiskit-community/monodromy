@@ -21,13 +21,14 @@ The key inputs to our method are:
 
 Given the b-coordinate and a set of intersection strengths, the procedure for
 backsolving for the a-coordinates is then extracted from the monodromy polytope.
-See monodromy/static/qlr_table.py for a method for regenerating these extracted
-polytopes.
+See monodromy/static/interference.py for a method for regenerating these
+extracted polytopes.
 """
 
 import numpy as np
 
 from ..io.base import ConvexPolytopeData, PolytopeData
+from ..static.interference import get_augmented_coordinate
 
 from .scipy import manual_get_random_vertex, polytope_has_element
 
@@ -70,66 +71,6 @@ NOTE: Includes an inequality which asserts 999 ≥ s+.  This bound is a dummy
       value, necessarily only because (our interface to) lrs does not deal well
       with unbounded regions.
 """
-
-
-def polytope_from_strengths(strengths, scale_factor=1):
-    """
-    Given a list of interaction `strengths` each lying in [0, 1/2], produces a
-    `Polytope` so that a normalized positive canonical coordinate (see
-    monodromy/coordinates.py) belongs to the polytope if and only if there
-    exists a circuit modeling it of the form
-
-        local * CAN(strength[0]) * local * CAN(strength[1]) * local * ...
-            ... * local * CAN(strength[-1]) * local .
-
-    NOTE: A strength of 0 correspond to the identity gate, and a strength of
-          1/2 lies in the local equivalence class of a CX (or a CZ).
-    NOTE: `scale_factor` rescales the resulting polytope. For scale_factor=pi/2,
-          this places CX at pi/4, in agreement with canonical coordinates.
-    """
-    strengths = strengths + [0, 0]
-    total_strength = 0
-    ultimate_strength, penultimate_strength = 0, 0
-    for strength in strengths:
-        total_strength += strength
-        if strength > ultimate_strength:
-            ultimate_strength, penultimate_strength = strength, ultimate_strength
-        elif strength > penultimate_strength:
-            penultimate_strength = strength
-
-    polytope = PolytopeData(convex_subpolytopes=[
-        ConvexPolytopeData([
-                [scale_factor, -1,  0,  0],  # 1  >= c1
-                [           0,  1, -1,  0],  # c1 >= c2
-                [           0,  0,  1, -1],  # c2 >= c3
-                [scale_factor, -1, -1,  0],  # 1 - c1 >= c2
-                [           0,  0,  0,  1],  # c3 >=  0, the C2 inequality
-                [total_strength, -1, -1, -1],  # strength bound
-                [total_strength - 2 * ultimate_strength, 1, -1, -1],  # slant bound
-                [total_strength - ultimate_strength - penultimate_strength, 0, 0, -1],  # frustrum bound
-            ],
-            name='·'.join(f"RZX({x / np.pi:.5f}π)" for x in strengths[:-2]) + 'unreflected'),
-        ConvexPolytopeData([
-                [scale_factor, -1,  0,  0],  # 1  >= c1
-                [           0,  1, -1,  0],  # c1 >= c2
-                [           0,  0,  1, -1],  # c2 >= c3
-                [scale_factor, -1, -1,  0],  # 1 - c1 >= c2
-                [           0,  0,  0,  1],  # c3 >=  0, the C2 inequality
-                [total_strength - scale_factor, 1, -1, -1],  # strength bound
-                [scale_factor + total_strength - 2 * ultimate_strength, -1, -1, -1], # slant bound
-                [total_strength - ultimate_strength - penultimate_strength, 0, 0, -1],  # frustrum bound
-            ],
-            name='·'.join(f"RZX({x / np.pi:.5f}π)" for x in strengths[:-2]) + 'reflected')
-    ])
-
-    return polytope
-
-
-def get_augmented_coordinate(target_coordinate, strengths):
-    *strengths, beta = strengths
-    strengths = sorted(strengths + [0, 0])
-    interaction_coordinate = [sum(strengths), strengths[-1], strengths[-2], beta]
-    return [*target_coordinate, *interaction_coordinate]
 
 
 def decomposition_hop(target_coordinate, strengths):

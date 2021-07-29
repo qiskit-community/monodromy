@@ -253,16 +253,16 @@ def monodromy_to_positive_canonical_polytope(
     return canonical_polytope
 
 
-def fidelity_distance(p, q):
+def average_infidelity(p, q):
     """
-    Computes the fidelity distance between two points p, q expressed in
-    monodromy coordinates.
+    Computes the infidelity distance between two points p, q expressed in
+    positive canonical coordinates.
     """
 
-    a, b, c = monodromy_to_positive_canonical_coordinate(*p)
-    d, e, f = monodromy_to_positive_canonical_coordinate(*q)
+    a, b, c = p
+    d, e, f = q
 
-    return 1 / 20 * (4 + 16 * (
+    return 1 - 1 / 20 * (4 + 16 * (
         math.cos(a - d) ** 2 * math.cos(b - e) ** 2 * math.cos(c - f) ** 2 +
         math.sin(a - d) ** 2 * math.sin(b - e) ** 2 * math.sin(c - f) ** 2
     ))

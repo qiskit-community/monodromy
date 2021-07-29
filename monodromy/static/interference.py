@@ -243,7 +243,7 @@ def polytope_from_strengths(strengths, scale_factor=1):
                 [total_strength - 2 * ultimate_strength, 1, -1, -1],  # slant bound
                 [total_strength - ultimate_strength - penultimate_strength, 0, 0, -1],  # frustrum bound
             ],
-            name='·'.join(f"RZX({x / np.pi:.5f}π)" for x in strengths[:-2]) + 'unreflected'),
+            name='·'.join(f"RZX({x / np.pi:.5f}π)" for x in strengths[:-2]) + ' unreflected'),
         ConvexPolytopeData([
                 [scale_factor, -1,  0,  0],  # 1  >= c1
                 [           0,  1, -1,  0],  # c1 >= c2
@@ -254,7 +254,7 @@ def polytope_from_strengths(strengths, scale_factor=1):
                 [scale_factor + total_strength - 2 * ultimate_strength, -1, -1, -1], # slant bound
                 [total_strength - ultimate_strength - penultimate_strength, 0, 0, -1],  # frustrum bound
             ],
-            name='·'.join(f"RZX({x / np.pi:.5f}π)" for x in strengths[:-2]) + 'reflected')
+            name='·'.join(f"RZX({x / np.pi:.5f}π)" for x in strengths[:-2]) + ' reflected')
     ])
 
     return polytope

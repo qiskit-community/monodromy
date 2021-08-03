@@ -1,6 +1,7 @@
 qiskit-terra
 numpy
 scipy
+qiskit
 
 # SEE README:
 # lrs

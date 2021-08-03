@@ -213,8 +213,8 @@ def monodromy_to_positive_canonical_polytope(
         coordinates: Optional[List[int]] = None
 ) -> Polytope:
     """
-    Converts a Polytope in monodromy coordinates to the corresponding Polytope
-    in normalized positive canonical coordinates.
+    Converts a Polytope in monodromy coordinates to a Polytope in positive
+    canonical coordinates, normalized so that CX lies at (1/2, 0, 0).
     """
     coordinates = [0, 1, 2, 3] if coordinates is None else coordinates
 

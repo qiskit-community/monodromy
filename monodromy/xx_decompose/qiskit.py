@@ -293,6 +293,8 @@ class MonodromyZXDecomposer:
         strengths (scaled so that CX = RZX(pi/2) corresponds to pi/2) to circuit
         fidelities.
         """
+        if not approximate:
+            basis_fidelity = 1.0
         strength_to_infidelity = self._strength_to_infidelity(basis_fidelity)
 
         # get the associated _positive_ canonical coordinate

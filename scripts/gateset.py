@@ -1,10 +1,16 @@
 """
-optimize.py
+scripts/gateset.py
 
-Example script showing how to optimize a gateset for performance against a user-
-defined cost metric.
+Example script showing how to optimize a(n XX-based) gateset for performance
+against a user-defined cost metric.
 
 NOTE: The optimization loop requires `pybobyqa`, a derivative-free optimizer.
+
+NOTE: We don't make use of tools which are further specialized for XX-based
+      gate-sets.  By modifying the `exactly` in `get_operations`, a user could
+      optimize over any shape of gateset they please.
+
+NOTE: `rescaled_objective` always includes a full XX.
 """
 
 from itertools import count
@@ -14,28 +20,31 @@ from time import perf_counter
 import numpy as np
 import pybobyqa
 
+import qiskit
 from monodromy.coverage import *
 from monodromy.static.examples import *
-from monodromy.haar import expected_cost
+from monodromy.haar import cost_statistics  # , expected_cost
 
-
-cost_table = {}
 gateset_dimension = 2  # how many gates to include beyond a full CX
+filename = "gateset_landscape.dat"  # .dat file with expected cost info
+
+#
+# ERROR MODEL
+#
+# We assume that the infidelity cost of a native 2Q interaction is affinely
+# related to the interaction strength.  The following two values track the
+# offset and the slope of this affine-linear function.
+#
+# first summand: 2Q invocation cost; second summand: cost of local gates
+offset = 909 / (10000 * 100) + 1 / 1000
+# note: Isaac reports this value in percent per degree
+scale_factor = (64 * 90) / (10000 * 100)
 
 
-# useful for reproducibility
-np.random.seed(0)
-
-
-# We take cost to be average gate infidelity and assume that it is approximately
-# additive in our range of interest.  The following magic values reflect some
-# internal experimental data.
 def operation_cost(
         strength: Fraction,
-        # note: Isaac reports this value in percent per degree
-        scale_factor: float = (64 * 90) / (10000 * 100),
-        # first component: 2Q invocation cost; second component: local cost
-        offset: float = 909 / (10000 * 100) + 1 / 1000,
+        scale_factor: float = scale_factor,
+        offset: float = offset,
 ):
     return strength * scale_factor + offset
 
@@ -54,8 +63,16 @@ def get_operations(*strengths):
             ).convex_subpolytopes,
             cost=operation_cost(strength),
             operations=[f"{str(strength)} XX"],
-        ) for strength in strengths
+        ) for strength in set(strengths)
     ]
+
+
+# useful for reproducibility
+np.random.seed(0)
+
+# tuples of descending strengths in [0, 1]
+#     -> {"average_cost", "average_overshot", "sigma_cost", "sigma_overshot"}
+cost_table = {}
 
 
 def objective(ratios):
@@ -63,6 +80,8 @@ def objective(ratios):
     Function to be optimized: consumes a family of interaction strengths, then
     computes the expected cost of compiling a Haar-randomly chosen 2Q operator.
     """
+    global offset, scale_factor
+
     timer_coverage = perf_counter()
     operations = get_operations(*ratios)
     strengths_string = ', '.join([str(s) + " XX" for s in ratios])
@@ -70,9 +89,11 @@ def objective(ratios):
     coverage_set = build_coverage_set(operations, chatty=True)
     timer_coverage = perf_counter() - timer_coverage
     timer_haar = perf_counter()
-    cost = expected_cost(coverage_set, chatty=True)
+    cost_table[tuple(ratios)] = cost_statistics(
+        coverage_set, offset=offset, scale_factor=scale_factor, chatty=True
+    )
+    cost = cost_table[tuple(ratios)]["average_cost"]
     timer_haar = perf_counter() - timer_haar
-    cost_table[tuple(ratios)] = cost
     print(
         f"{strengths_string} took {timer_coverage:.3f}s + {timer_haar:.3f}s = "
         f"{timer_coverage + timer_haar:.3f}s")
@@ -110,16 +131,18 @@ def print_cost_table():
     """
     Utility function for printing the expected costs calculated so far.
     """
-    print("Dumping cost table:")
-    for k, v in cost_table.items():
-        print("{" + ', '.join([str(kk) for kk in k] + [str(v)]) + "}, ")
-    if 0 < len(cost_table):
-        minimum_key = min(cost_table, key=cost_table.get)
-        print("Best point: {" +
-              ', '.join(list([str(kk) for kk in minimum_key]) +
-                        [str(cost_table[minimum_key])]) +
-              "}")
-    print("=====")
+    global filename, gateset_dimension
+
+    keys = ["average_cost", "average_overshot", "sigma_cost", "sigma_overshot"]
+
+    print("Dumping cost table...")
+    with open(filename, "w") as fh:
+        fh.write(' '.join([f'strength{n}' for n in range(1 + gateset_dimension)])
+                 + " " + ' '.join(keys) + '\n')
+        for k, v in cost_table.items():
+            fh.write(' '.join(str(float(entry)) for entry in k) + ' ' +
+                     ' '.join(str(v[key]) for key in keys) + '\n')
+    print("Dumped.")
 
 
 ################################################################################
@@ -127,22 +150,28 @@ def print_cost_table():
 # make the best use of time by first using `pybobyqa` to calculate an optimal
 # gateset.
 x0 = np.array([Fraction(1, 2)] * gateset_dimension)
-solution = pybobyqa.solve(
-    rescaled_objective, x0,
-    bounds=([0] * gateset_dimension, [1] * gateset_dimension),
-    objfun_has_noise=False,
-    print_progress=True,
-    rhoend=1e-4
-)
+# solution = pybobyqa.solve(
+#     rescaled_objective, x0,
+#     bounds=([0] * gateset_dimension, [1] * gateset_dimension),
+#     objfun_has_noise=False,
+#     print_progress=True,
+#     rhoend=1e-4
+# )
+
+solution = objective([Fraction(1), Fraction(1, 2), Fraction(1, 3)])
 
 print("Optimizer solution:")
 print(solution)
 
+print(cost_table)
+
 
 ################################################################################
 
-# with that done, we can continue to sample points to flesh out the space to
-# turn it into a nice plot overall.
+print("Now we enter an infinite loop to flesh out the gateset landscape and "
+      "turn it into a nice plot overall.  Use KeyboardInterrupt to quit "
+      "whenever you're satisfied.")
+
 
 def iterate_over_total(
     total,
@@ -199,8 +228,6 @@ def iterate_over_numerators(
 #
 # it also includes the full CX in the call to `objective`, to match the behavior
 # of the optimization step above.
-#
-# this runs forever. use KeyboardInterrupt to stop when you're satisfied.
 for total in count(1):
     iterate_over_total(
         total,

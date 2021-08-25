@@ -139,7 +139,7 @@ class MonodromyZXDecomposer:
         return len(best_sequence)
 
     @staticmethod
-    def _strength_to_infidelity(basis_fidelity):
+    def _strength_to_infidelity(basis_fidelity, approximate=False):
         """
         Converts a dictionary mapping ZX strengths to fidelities to a dictionary
         mapping ZX strengths to infidelities. Also supports some of the other
@@ -149,8 +149,10 @@ class MonodromyZXDecomposer:
         """
 
         if basis_fidelity is None or isinstance(basis_fidelity, float):
-            if isinstance(basis_fidelity, float):
-                slope, offset = 1 - basis_fidelity, 1e-10
+            if not approximate:
+                slope, offset = 1e-10, 1e-12
+            elif isinstance(basis_fidelity, float):
+                slope, offset = (1 - basis_fidelity) / 2, (1 - basis_fidelity) / 2
             else:
                 # some reasonable default values
                 slope, offset = (64 * 90) / 1000000, 909 / 1000000 + 1 / 1000
@@ -160,7 +162,8 @@ class MonodromyZXDecomposer:
             }
         elif isinstance(basis_fidelity, dict):
             return {
-                strength: 1 - fidelity
+                strength: (1 - fidelity if approximate
+                           else 1e-12 + 1e-10 * strength / (np.pi / 2))
                 for (strength, fidelity) in basis_fidelity.items()
             }
 
@@ -176,9 +179,9 @@ class MonodromyZXDecomposer:
         strengths (scaled so that CX = RZX(pi/2) corresponds to pi/2) to circuit
         fidelities.
         """
-        if not approximate:
-            basis_fidelity = 1.0
-        strength_to_infidelity = self._strength_to_infidelity(basis_fidelity)
+        strength_to_infidelity = self._strength_to_infidelity(
+            basis_fidelity, approximate=approximate
+        )
 
         # get the associated _positive_ canonical coordinate
         weyl_decomposition = TwoQubitWeylDecomposition(u)
@@ -234,7 +237,9 @@ class MonodromyZXDecomposer:
         circ.append(UnitaryGate(weyl_decomposition.K1r), [0])
         circ.append(UnitaryGate(weyl_decomposition.K1l), [1])
 
-        return self._decompose_1q(circ)
+        circ = self._decompose_1q(circ)
+
+        return circ
 
     # TODO: remit this to `optimize_1q_decomposition.py` in qiskit
     def _decompose_1q(self, circuit):

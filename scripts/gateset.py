@@ -25,8 +25,8 @@ from monodromy.coverage import *
 from monodromy.static.examples import *
 from monodromy.haar import cost_statistics  # , expected_cost
 
-gateset_dimension = 2  # how many gates to include beyond a full CX
-filename = "gateset_landscape.dat"  # .dat file with expected cost info
+gateset_dimension = 1  # how many gates to include beyond a full CX
+filename = "gateset_landscape_1d.dat"  # .dat file with expected cost info
 
 #
 # ERROR MODEL
@@ -150,15 +150,13 @@ def print_cost_table():
 # make the best use of time by first using `pybobyqa` to calculate an optimal
 # gateset.
 x0 = np.array([Fraction(1, 2)] * gateset_dimension)
-# solution = pybobyqa.solve(
-#     rescaled_objective, x0,
-#     bounds=([0] * gateset_dimension, [1] * gateset_dimension),
-#     objfun_has_noise=False,
-#     print_progress=True,
-#     rhoend=1e-4
-# )
-
-solution = objective([Fraction(1), Fraction(1, 2), Fraction(1, 3)])
+solution = pybobyqa.solve(
+    rescaled_objective, x0,
+    bounds=([0] * gateset_dimension, [1] * gateset_dimension),
+    objfun_has_noise=False,
+    print_progress=True,
+    rhoend=1e-4
+)
 
 print("Optimizer solution:")
 print(solution)

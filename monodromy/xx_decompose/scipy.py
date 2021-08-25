@@ -90,7 +90,6 @@ def polyhedron_has_element(polytope, point):
         for inequality in cp.inequalities:
             value = inequality[0] + point[0] * inequality[1] + \
                 point[1] * inequality[2] + point[2] * inequality[3]
-            # print(f"Trying inequality {inequality}: {value}")
             # this inequality has to be (near) positive
             if -epsilon > value:
                 violated = True
@@ -100,7 +99,6 @@ def polyhedron_has_element(polytope, point):
         for equality in cp.equalities:
             value = equality[0] + point[0] * equality[1] + \
                 point[1] * equality[2] + point[2] * equality[3]
-            # print(f"Trying equality {equality}: {value}")
             # this equality has to be (near) zero)
             if epsilon < abs(value):
                 violated = True
@@ -217,7 +215,7 @@ def nearest_point_plane(point, plane):
     nn = (n1 * n1 + n2 * n2 + n3 * n3)
     if nn < epsilon:
         raise NoFeasibleSolutions()
-    k = (p1 * n1 + p2 * n2 + p3 * n3 - b) / nn
+    k = (p1 * n1 + p2 * n2 + p3 * n3 + b) / nn
     return p1 - k * n1, p2 - k * n2, p3 - k * n3
 
 
@@ -256,10 +254,8 @@ def point_from_implicit(plane1, plane2, plane3):
     Raises NoFeasibleSolutions if the planes or their arrangement is degenerate.
     """
     try:
-        A = np.array([
-            plane1[1:], plane2[1:], plane3[1:]
-        ])
-        b = np.array([plane1[0], plane2[0], plane3[0]])
+        A = np.array([plane1[1:], plane2[1:], plane3[1:]])
+        b = np.array([-plane1[0], -plane2[0], -plane3[0]])
         return np.linalg.inv(A) @ b
     except np.linalg.LinAlgError:
         raise NoFeasibleSolutions()
@@ -286,13 +282,17 @@ def nearest_point_polyhedron(point, polytope):
     if polyhedron_has_element(polytope, point):
         return point
 
+    candidates = []
+
     # iterate over faces
     for cp in polytope.convex_subpolytopes:
         for plane in cp.inequalities + cp.equalities:
             try:
                 candidate = nearest_point_plane(point, plane)
                 if polyhedron_has_element(polytope, candidate):
-                    return candidate
+                    candidates.append(
+                        (candidate, point_point_distance(candidate, point))
+                    )
             except NoFeasibleSolutions:
                 pass
 
@@ -302,24 +302,28 @@ def nearest_point_polyhedron(point, polytope):
             try:
                 candidate = nearest_point_line(point, plane1, plane2)
                 if polyhedron_has_element(polytope, candidate):
-                    return candidate
+                    candidates.append(
+                        (candidate, point_point_distance(candidate, point))
+                    )
             except NoFeasibleSolutions:
                 pass
 
     # iterate over vertices
-    vertex_distances = []
     for cp in polytope.convex_subpolytopes:
         # TODO: this could be computed once and for all.
         for (plane1, plane2, plane3) in combinations(
-                cp.inequalities + cp.equalities, 3):
+                cp.inequalities + cp.equalities, 3
+        ):
             try:
-                vertex = point_from_implicit(plane1, plane2, plane3)
-                vertex_distances.append(
-                    (vertex, point_point_distance(vertex, point)))
+                candidate = point_from_implicit(plane1, plane2, plane3)
+                if polyhedron_has_element(polytope, candidate):
+                    candidates.append(
+                        (candidate, point_point_distance(candidate, point))
+                    )
             except NoFeasibleSolutions:
                 pass
 
-    if 0 == len(vertex_distances):
+    if 0 == len(candidates):
         raise NoFeasibleSolutions()
 
-    return sorted(vertex_distances, key=lambda x: x[1])[0][0]
+    return sorted(candidates, key=lambda x: x[1])[0][0]

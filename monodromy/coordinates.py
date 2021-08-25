@@ -321,6 +321,74 @@ def rho_reflect(polytope, coordinates=None):
     return Polytope(convex_subpolytopes=rho_subpolytopes)
 
 
+def mirror_positive_canonical_coordinate(coordinate):
+    """
+    Produces the SWAP-mirror of an unnormalized positive canonical coordinate.
+    """
+    alpha, beta, gamma = coordinate
+    if alpha >= np.pi / 4 + epsilon:
+        return [np.pi / 4 - gamma, np.pi / 4 - beta, np.pi / 4 + alpha]
+    else:
+        return [np.pi / 4 + gamma, np.pi / 4 - beta, np.pi / 4 - alpha]
+
+
+def mirror_monodromy_polytope(polytope):
+    """
+    Calculates the mirror of a polytope expressed in monodromy coordinates.
+    """
+    low_polytope = copy(polytope)
+    low_polytope.convex_subpolytopes = []
+    for cp in polytope.convex_subpolytopes:
+        # for a < 1/2, get (1/2 + c, 1/2 - b, 1/2 - a)
+        mirror_cp = ConvexPolytope(
+            inequalities=[[1, -2, 0, 0]],
+            equalities=[],
+            name=cp.name
+        )
+        # k + c1 a + c2 b + c3 c ≥ 0 becomes
+        # (2 k + c1 + c2 + c3) + -2 c3 a + -2 c2 b + 2 c1 c ≥ 0
+        for ineq in cp.inequalities:
+            k, c1, c2, c3, = ineq
+            mirror_cp.inequalities.append([
+                2*k + c1 + c2 + c3, -2 * c3, -2 * c2, 2 * c1
+            ])
+        for eq in cp.equalities:
+            k, c1, c2, c3, = eq
+            mirror_cp.equalities.append([
+                2 * k + c1 + c2 + c3, -2 * c3, -2 * c2, 2 * c1
+            ])
+        low_polytope.convex_subpolytopes.append(mirror_cp)
+
+    high_polytope = copy(polytope)
+    high_polytope.convex_subpolytopes = []
+    for cp in polytope.convex_subpolytopes:
+        # for a > 1/2, get (1/2 - c, 1/2 - b, a - 1/2).
+        mirror_cp = ConvexPolytope(
+            inequalities=[[1, -2, 0, 0]],
+            equalities=[],
+            name=cp.name
+        )
+        # k + c1 a + c2 b + c3 c ≥ 0 becomes
+        # (2 k + c1 + c2 - c3) + 2 c3 a - 2 c2 b - 2 c1 c ≥ 0
+        for ineq in cp.inequalities:
+            k, c1, c2, c3, = ineq
+            mirror_cp.inequalities.append([
+                2 * k + c1 + c2 - c3, 2 * c3, -2 * c2, -2 * c1
+            ])
+        for eq in cp.equalities:
+            k, c1, c2, c3, = eq
+            mirror_cp.equalities.append([
+                2 * k + c1 + c2 - c3, 2 * c3, -2 * c2, -2 * c1
+            ])
+        high_polytope.convex_subpolytopes.append(mirror_cp)
+
+    return (
+        low_polytope
+            .union(high_polytope)
+            .intersect(positive_canonical_alcove_c2)
+    )
+
+
 def monodromy_to_monodromy_pcs_polytope(polytope):
     """
     Converts a `polytope`, expressed in monodromy coordinates with the standard

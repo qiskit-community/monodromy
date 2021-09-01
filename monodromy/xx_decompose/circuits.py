@@ -17,7 +17,6 @@ from functools import reduce
 import math
 import numpy as np
 from operator import itemgetter
-import warnings
 
 import qiskit
 
@@ -160,10 +159,10 @@ def xx_circuit_step(
     if permute_source_for_overlap is None:
         raise NoBacksolution()
 
-    if (source_reflection_name != "no reflection" or
-            source_shift_name != "no shift"):
-        warnings.warn(f"Needed to use an extra Weyl reflection: "
-                      f"{source_reflection_name} + {source_shift_name}.")
+    # if (source_reflection_name != "no reflection" or
+    #         source_shift_name != "no shift"):
+    #     warnings.warn(f"Needed to use an extra Weyl reflection: "
+    #                   f"{source_reflection_name} + {source_shift_name}.")
 
     prefix_circuit, affix_circuit = \
         qiskit.QuantumCircuit(2), qiskit.QuantumCircuit(2)

@@ -6,7 +6,7 @@ Staging ground for a QISKit Terra compilation pass which emits ZX circuits.
 
 import heapq
 from operator import itemgetter
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 
@@ -39,6 +39,8 @@ class MonodromyZXDecomposer:
         embodiments: An dictionary mapping interaction strengths alpha to native
             circuits which embody the gate CAN(alpha, 0, 0). Strengths are taken
             to be normalized, so that 1/2 represents the class of a full CX.
+        backup_optimizer: If supplied, defers synthesis to this callable when
+            MonodromyZXDecomposer has no efficient decomposition of its own.
 
     NOTE: If embodiments is not passed, or if an entry is missing, it will
         be populated as needed using the method _default_embodiment.
@@ -48,10 +50,12 @@ class MonodromyZXDecomposer:
             self,
             euler_basis: str = "U3",
             embodiments: Optional[dict] = None,
+            backup_optimizer: Optional[Callable] = None,
     ):
         self._decomposer1q = OneQubitEulerDecomposer(euler_basis)
         self.gate = RZXGate(np.pi/2)
         self.embodiments = embodiments if embodiments is not None else {}
+        self.backup_optimizer = backup_optimizer
 
     @staticmethod
     def _default_embodiment(strength):
@@ -200,6 +204,10 @@ class MonodromyZXDecomposer:
             for k, v in strength_to_infidelity.items()
         }
         circuit = canonical_xx_circuit(best_point, best_sequence, embodiments)
+
+        if (best_sequence == [np.pi / 2, np.pi / 2, np.pi / 2]
+                and self.backup_optimizer is not None):
+            return self.backup_optimizer(u, basis_fidelity=basis_fidelity)
 
         # change to positive canonical coordinates
         if weyl_decomposition.c >= -epsilon:

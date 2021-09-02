@@ -20,11 +20,10 @@ from qiskit.quantum_info.synthesis.two_qubit_decompose import \
 
 from ..coordinates import average_infidelity, \
     monodromy_to_positive_canonical_coordinate, unitary_to_monodromy_coordinate
-from ..static.interference import polytope_from_strengths
 from ..utilities import epsilon
 
 from .circuits import apply_reflection, apply_shift, canonical_xx_circuit
-from .scipy import nearest_point_polyhedron, polyhedron_has_element
+from .xx_polytope import XXPolytope
 
 
 class MonodromyZXDecomposer:
@@ -96,16 +95,15 @@ class MonodromyZXDecomposer:
         best_point, best_cost, best_sequence = [0, 0, 0], 1., []
         priority_queue = []
         heapq.heappush(priority_queue, (0, []))
+        canonical_coordinate = np.array(canonical_coordinate)
 
         while True:
             sequence_cost, sequence = heapq.heappop(priority_queue)
 
-            strength_polytope = polytope_from_strengths(
-                [x / 2 for x in sequence], scale_factor=np.pi / 2
+            strength_polytope = XXPolytope.from_strengths(
+                *[x / 2 for x in sequence]
             )
-            candidate_point = nearest_point_polyhedron(
-                canonical_coordinate, strength_polytope
-            )
+            candidate_point = strength_polytope.nearest(canonical_coordinate)
             candidate_cost = sequence_cost + average_infidelity(
                 canonical_coordinate, candidate_point
             )
@@ -114,7 +112,7 @@ class MonodromyZXDecomposer:
                 best_point, best_cost, best_sequence = \
                     candidate_point, candidate_cost, sequence
 
-            if polyhedron_has_element(strength_polytope, canonical_coordinate):
+            if strength_polytope.member(canonical_coordinate):
                 break
 
             for strength, extra_cost in available_strengths.items():

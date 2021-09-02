@@ -13,10 +13,11 @@ import numpy as np
 from qiskit import QuantumCircuit
 from qiskit.circuit.library import RZXGate
 from qiskit.extensions import UnitaryGate
-from qiskit.quantum_info.operators import Operator
-from qiskit.quantum_info.synthesis import OneQubitEulerDecomposer
+from qiskit.quantum_info.synthesis.one_qubit_decompose import \
+    ONE_QUBIT_EULER_BASIS_GATES
 from qiskit.quantum_info.synthesis.two_qubit_decompose import \
     TwoQubitWeylDecomposition
+from qiskit.transpiler.passes.optimization import Optimize1qGatesDecomposition
 
 from ..coordinates import average_infidelity, \
     monodromy_to_positive_canonical_coordinate, unitary_to_monodromy_coordinate
@@ -51,7 +52,9 @@ class MonodromyZXDecomposer:
             embodiments: Optional[dict] = None,
             backup_optimizer: Optional[Callable] = None,
     ):
-        self._decomposer1q = OneQubitEulerDecomposer(euler_basis)
+        self._decomposer1q = Optimize1qGatesDecomposition(
+            ONE_QUBIT_EULER_BASIS_GATES[euler_basis]
+        )
         self.gate = RZXGate(np.pi/2)
         self.embodiments = embodiments if embodiments is not None else {}
         self.backup_optimizer = backup_optimizer
@@ -243,37 +246,6 @@ class MonodromyZXDecomposer:
         circ.append(UnitaryGate(weyl_decomposition.K1r), [0])
         circ.append(UnitaryGate(weyl_decomposition.K1l), [1])
 
-        circ = self._decompose_1q(circ)
+        circ = self._decomposer1q(circ)
 
         return circ
-
-    # TODO: remit this to `optimize_1q_decomposition.py` in qiskit
-    def _decompose_1q(self, circuit):
-        """
-        Gather the one-qubit substrings in a two-qubit circuit and apply the
-        local decomposer.
-        """
-        circ_0 = QuantumCircuit(1)
-        circ_1 = QuantumCircuit(1)
-        output_circuit = QuantumCircuit(2, global_phase=circuit.global_phase)
-
-        for gate, q, _ in circuit:
-            if q == [circuit.qregs[0][0]]:
-                circ_0.append(gate, [0])
-            elif q == [circuit.qregs[0][1]]:
-                circ_1.append(gate, [0])
-            else:
-                circ_0 = self._decomposer1q(Operator(circ_0).data)
-                circ_1 = self._decomposer1q(Operator(circ_1).data)
-                output_circuit.compose(circ_0, [0], inplace=True)
-                output_circuit.compose(circ_1, [1], inplace=True)
-                output_circuit.append(gate, [0, 1])
-                circ_0 = QuantumCircuit(1)
-                circ_1 = QuantumCircuit(1)
-
-        circ_0 = self._decomposer1q(Operator(circ_0).data)
-        circ_1 = self._decomposer1q(Operator(circ_1).data)
-        output_circuit.compose(circ_0, [0], inplace=True)
-        output_circuit.compose(circ_1, [1], inplace=True)
-
-        return output_circuit

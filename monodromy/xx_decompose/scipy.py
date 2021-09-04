@@ -201,6 +201,38 @@ def manual_get_random_vertex(polytope):
     raise NoFeasibleSolutions()
 
 
+def manual_get_vertex(polytope):
+    """
+    Returns a single random vertex from `polytope`.
+
+    Same as `manual_get_random_vertex`, but not random.
+    """
+    if isinstance(polytope, PolytopeData):
+        paragraphs = copy(polytope.convex_subpolytopes)
+    elif isinstance(polytope, ConvexPolytopeData):
+        paragraphs = [polytope]
+    else:
+        raise TypeError(f"{type(polytope)} is not polytope-like.")
+
+    for convex_subpolytope in paragraphs:
+        sentences = convex_subpolytope.inequalities + \
+                    convex_subpolytope.equalities
+        if len(sentences) == 0:
+            continue
+        dimension = len(sentences[0]) - 1
+        for inequalities in combinations(sentences, dimension):
+            A = np.array([x[1:] for x in inequalities])
+            b = np.array([x[0] for x in inequalities])
+            try:
+                vertex = np.linalg.inv(-A) @ b
+                if polytope_has_element(convex_subpolytope, vertex):
+                    return vertex
+            except np.linalg.LinAlgError:
+                pass
+
+    raise NoFeasibleSolutions()
+
+
 def nearest_point_plane(point, plane):
     """
     Computes the point nearest `point` on an affine `plane` in R^3, specified as

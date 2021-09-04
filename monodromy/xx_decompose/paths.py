@@ -135,5 +135,5 @@ def decomposition_hop(target_coordinate, strengths):
     if specialized_polytope is None:
         raise ValueError("Failed to match a constrained_polytope summand.")
 
-    ah, al = manual_get_random_vertex(specialized_polytope)
+    ah, al = manual_get_vertex(specialized_polytope)
     return [x * (np.pi / 2) for x in sorted([ah, al, af], reverse=True)]

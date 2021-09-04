@@ -22,7 +22,7 @@ A = np.array([
     [ 1, -1, -1],  # slant
     [ 0,  0, -1],  # frustrum
 ])
-A1 = A.reshape(7, 1, 3)
+A1 = A.reshape(-1, 1, 3)
 A1inv = np.linalg.pinv(A1)
 A2 = np.array([np.array([x, y], dtype=float)
                for (x, y) in itertools.combinations(A, 2)])
@@ -147,12 +147,12 @@ class XXPolytope:
         # codimension 1
         b1 = self._offsets.reshape(7, 1)
         A1y0 = np.einsum('ijk,k->ij', A1, y0)
-        nearest1 = np.einsum('ijk,ik->ij', A1inv, b1 - A1y0) + y0
+        nearest1 = np.einsum('ijk,ik->ij', A1inv, b1 + A1y0) - y0
 
         # codimension 2
         b2 = np.array([*itertools.combinations(self._offsets, 2)])
         A2y0 = np.einsum('ijk,k->ij', A2, y0)
-        nearest2 = np.einsum('ijk,ik->ij', A2inv, b2 - A2y0) + y0
+        nearest2 = np.einsum('ijk,ik->ij', A2inv, b2 + A2y0) - y0
 
         # codimension 3
         b3 = np.array([*itertools.combinations(self._offsets, 3)])

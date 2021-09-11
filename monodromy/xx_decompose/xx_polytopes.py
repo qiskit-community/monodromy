@@ -1,5 +1,5 @@
 """
-monodromy/xx_decompose/xx_polytope.py
+monodromy/xx_decompose/xx_polytopes.py
 
 Defines a data structure which describes those two-qubit programs accessible to
 a given sequence of XX-type interactions.

@@ -30,7 +30,7 @@ import numpy as np
 from ..io.base import ConvexPolytopeData, PolytopeData
 from ..static.interference import get_augmented_coordinate
 
-from .scipy import manual_get_random_vertex, polytope_has_element
+from .scipy import manual_get_vertex, polytope_has_element
 
 
 xx_region_polytope = PolytopeData(convex_subpolytopes=[

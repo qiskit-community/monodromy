@@ -116,6 +116,15 @@ class Polynomial:
 
         return output[:-3]
 
+    def __eq__(self, other):
+        for k, v in self.coefficient_table.items():
+            if v != other.coefficient_table[k]:
+                return False
+        for k, v in other.coefficient_table.items():
+            if v != self.coefficient_table[k]:
+                return False
+        return True
+
     def evaluate(self, variable, value):
         """
         Replaces the variable indexed at `variable` by the Polynomial `value`.

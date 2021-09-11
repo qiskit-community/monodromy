@@ -11,6 +11,7 @@ from copy import copy
 from fractions import Fraction
 from functools import reduce
 import math  # for gcd
+from operator import itemgetter
 from os import getenv
 from subprocess import Popen, PIPE
 from typing import List
@@ -127,6 +128,18 @@ class LRSBackend(Backend):
         response = single_lrs_pass(vertex_payload)
         simplices = decode_simplices(response)
         return simplices["simplices"]
+
+    @staticmethod
+    def convex_hull(vertices: List[List[Fraction]]) -> ConvexPolytope:
+        payload = encode_vertices([(1, *x) for x in vertices])
+        response = single_lrs_pass(payload)
+        inequalities, equalities = itemgetter("inequalities", "equalities")(
+            decode_inequalities(response)
+        )
+        return ConvexPolytope(
+            inequalities=inequalities,
+            equalities=equalities,
+        )
 
 
 def single_lrs_pass(payload: bytes, chatty=False) -> bytes:

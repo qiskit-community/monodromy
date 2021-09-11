@@ -85,6 +85,10 @@ class ConvexPolytope(ConvexPolytopeData):
             return []
         return monodromy.backend.backend.triangulation(self)
 
+    @classmethod
+    def convex_hull(cls, vertices):
+        return monodromy.backend.backend.convex_hull(vertices)
+
     def reduce(self):  # -> ConvexPolytope
         """
         Produces an equivalent convex body with irredundant inequalities.

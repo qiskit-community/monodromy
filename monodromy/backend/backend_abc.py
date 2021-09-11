@@ -51,3 +51,11 @@ class Backend(ABC):
         specified as the index into .vertices at which it appears.
         """
         pass
+
+    @staticmethod
+    @abstractmethod
+    def convex_hull(vertices):  # List[List[Fraction]] -> ConvexPolytope
+        """
+        Produces a minimal ConvexPolytope from a set of vertices.
+        """
+        pass

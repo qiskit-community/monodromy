@@ -24,7 +24,7 @@ from ..coordinates import average_infidelity, \
 from ..utilities import epsilon
 
 from .circuits import apply_reflection, apply_shift, canonical_xx_circuit
-from .xx_polytope import XXPolytope
+from .xx_polytopes import XXPolytope
 
 
 class MonodromyZXDecomposer:
@@ -67,7 +67,7 @@ class MonodromyZXDecomposer:
         """
         xx_circuit = QuantumCircuit(2)
 
-        if strength == np.pi/2:
+        if strength == np.pi / 2:
             xx_circuit.h(0)
             xx_circuit.cx(0, 1)
             xx_circuit.h(1)

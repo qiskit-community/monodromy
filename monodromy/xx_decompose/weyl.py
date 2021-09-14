@@ -11,11 +11,10 @@ from qiskit.circuit.library import RXGate, RYGate, RZGate
 
 
 reflection_options = {
-    "no reflection": ([1, 1, 1], 1, []),  # we checked this phase
-    "reflect XX, YY": ([-1, -1, 1], 1, [RZGate]),  # we checked this phase
+    "no reflection": ([1, 1, 1], 1, []),
+    "reflect XX, YY": ([-1, -1, 1], 1, [RZGate]),
     "reflect XX, ZZ": ([-1, 1, -1], 1, [RYGate]),
-    # we checked this phase, but only in a pair with Y shift
-    "reflect YY, ZZ": ([1, -1, -1], 1, [RXGate]),  # unchecked
+    "reflect YY, ZZ": ([1, -1, -1], 1, [RXGate]),
 }
 """
 A table of available reflection transformations on canonical coordinates.
@@ -29,15 +28,14 @@ and by conjugation to the first qubit and are passed pi as a parameter.
 """
 
 shift_options = {
-    "no shift": ([0, 0, 0], 1, []),  # we checked this phase
-    "Z shift": ([0, 0, 1], 1j, [RZGate]),  # we checked this phase
+    "no shift": ([0, 0, 0], 1, []),
+    "Z shift": ([0, 0, 1], 1j, [RZGate]),
     "Y shift": ([0, 1, 0], -1j, [RYGate]),
-    # we checked this phase, but only in a pair with reflect XX, ZZ
-    "Y,Z shift": ([0, 1, 1], 1, [RYGate, RZGate]),  # unchecked
-    "X shift": ([1, 0, 0], -1j, [RXGate]),  # we checked this phase
-    "X,Z shift": ([1, 0, 1], 1, [RXGate, RZGate]),  # we checked this phase
-    "X,Y shift": ([1, 1, 0], -1, [RXGate, RYGate]),  # unchecked
-    "X,Y,Z shift": ([1, 1, 1], -1j, [RXGate, RYGate, RZGate]),  # unchecked
+    "Y,Z shift": ([0, 1, 1], 1, [RYGate, RZGate]),
+    "X shift": ([1, 0, 0], -1j, [RXGate]),
+    "X,Z shift": ([1, 0, 1], 1, [RXGate, RZGate]),
+    "X,Y shift": ([1, 1, 0], -1, [RXGate, RYGate]),
+    "X,Y,Z shift": ([1, 1, 1], -1j, [RXGate, RYGate, RZGate]),
 }
 """
 A table of available shift transformations on canonical coordinates.  Entries

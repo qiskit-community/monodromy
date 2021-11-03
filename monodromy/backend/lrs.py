@@ -64,27 +64,6 @@ class LRSBackend(Backend):
     # NOTE: This method uses the `redund` option, which is a recent addition to
     #       `lrs` and may be buggy.  The (commented out) variant of this method
     #       below performs the same computation without `redund`, but is slower.
-    @staticmethod
-    def reduce(convex_polytope: ConvexPolytope) -> ConvexPolytope:
-        clone = copy(convex_polytope)
-
-        inequalities = convex_polytope.inequalities
-        equalities = convex_polytope.equalities
-        inequality_payload = encode_inequalities(
-            inequalities, equalities,
-            options=["redund 0 0"]  # lrs ≥ 7.1
-        )
-        inequality_response = single_lrs_pass(inequality_payload)
-        inequality_dictionary = decode_inequalities(inequality_response)
-
-        clone.inequalities = inequality_dictionary["inequalities"]
-        clone.equalities = inequality_dictionary["equalities"]
-
-        return clone
-
-    # NOTE: This method does not use the `redund` option, which is a recent
-    #       addition to `lrs` and may be buggy.  The variant of this method
-    #       above performs the same computation with `redund`, so is faster.
     # @staticmethod
     # def reduce(convex_polytope: ConvexPolytope) -> ConvexPolytope:
     #     clone = copy(convex_polytope)
@@ -93,17 +72,38 @@ class LRSBackend(Backend):
     #     equalities = convex_polytope.equalities
     #     inequality_payload = encode_inequalities(
     #         inequalities, equalities,
+    #         options=["redund 0 0"]  # lrs ≥ 7.1
     #     )
-    #     vertex_response = single_lrs_pass(inequality_payload)
-    #     vertices = decode_vertices(vertex_response)
-    #     vertex_payload = encode_vertices(vertices)
-    #     inequality_response = single_lrs_pass(vertex_payload)
+    #     inequality_response = single_lrs_pass(inequality_payload)
     #     inequality_dictionary = decode_inequalities(inequality_response)
     #
     #     clone.inequalities = inequality_dictionary["inequalities"]
     #     clone.equalities = inequality_dictionary["equalities"]
     #
     #     return clone
+
+    # NOTE: This method does not use the `redund` option, which is a recent
+    #       addition to `lrs` and may be buggy.  The variant of this method
+    #       above performs the same computation with `redund`, so is faster.
+    @staticmethod
+    def reduce(convex_polytope: ConvexPolytope) -> ConvexPolytope:
+        clone = copy(convex_polytope)
+
+        inequalities = convex_polytope.inequalities
+        equalities = convex_polytope.equalities
+        inequality_payload = encode_inequalities(
+            inequalities, equalities,
+        )
+        vertex_response = single_lrs_pass(inequality_payload)
+        vertices = decode_vertices(vertex_response)
+        vertex_payload = encode_vertices(vertices)
+        inequality_response = single_lrs_pass(vertex_payload)
+        inequality_dictionary = decode_inequalities(inequality_response)
+
+        clone.inequalities = inequality_dictionary["inequalities"]
+        clone.equalities = inequality_dictionary["equalities"]
+
+        return clone
 
     @staticmethod
     def vertices(convex_polytope: ConvexPolytope) -> List[List[Fraction]]:

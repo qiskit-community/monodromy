@@ -41,7 +41,7 @@ class CircuitPolytope(Polytope, CircuitPolytopeData):
                (self.cost == other.cost and self.volume <= other.volume)
 
 
-def intersect_and_project(
+def deduce_qlr_consequences(
         target: str,
         a_polytope: Polytope,
         b_polytope: Polytope,
@@ -198,7 +198,7 @@ def build_coverage_set(
         
         # take the head's polytopes, adjoin the new gate (& its rotation),
         # calculate new polytopes, and add those polytopes to the working set
-        # TODO: This used to be part of a call to `intersect_and_project`, which
+        # TODO: This used to be part of a call to `deduce_qlr_consequences`, which
         #       we split up for efficiency.  See GH #13.
         new_polytope = prereduced_operation_polytopes[
             next_polytope.operations[-1]

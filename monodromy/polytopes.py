@@ -53,6 +53,8 @@ class PolytopeVolume:
 class ConvexPolytope(ConvexPolytopeData):
     """
     Houses a single convex polytope, together with methods for manipulation.
+
+    NOTE: This object is meant to be read-only after instantiation.
     """
 
     @memoized_property
@@ -87,6 +89,9 @@ class ConvexPolytope(ConvexPolytopeData):
 
     @classmethod
     def convex_hull(cls, vertices):
+        """
+        Produces the minimal ConvexPolytope containing the list of `vertices`.
+        """
         return monodromy.backend.backend.convex_hull(vertices)
 
     def reduce(self):  # -> ConvexPolytope
@@ -152,6 +157,8 @@ class ConvexPolytope(ConvexPolytopeData):
 class Polytope(PolytopeData):
     """
     A manipulable union of convex polytopes.
+
+    NOTE: This object is meant to be read-only after instantiation.
     """
 
     @classmethod

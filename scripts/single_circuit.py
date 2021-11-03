@@ -17,7 +17,7 @@ gates = [RZXGate(np.pi/3), RZXGate(np.pi/3), RZXGate(np.pi/3), RZXGate(np.pi/3)]
 from fractions import Fraction
 from monodromy.coordinates import monodromy_to_positive_canonical_polytope, \
     positive_canonical_alcove_c2, unitary_to_monodromy_coordinate
-from monodromy.coverage import intersect_and_project
+from monodromy.coverage import deduce_qlr_consequences
 from monodromy.static.examples import exactly, identity_polytope, \
     everything_polytope
 
@@ -30,7 +30,7 @@ for gate in gates:
         *(Fraction(x).limit_denominator(10_000)
           for x in unitary_to_monodromy_coordinate(gate.to_matrix())[:-1])
     )
-    circuit_polytope = intersect_and_project(
+    circuit_polytope = deduce_qlr_consequences(
         target="c",
         a_polytope=circuit_polytope,
         b_polytope=b_polytope,

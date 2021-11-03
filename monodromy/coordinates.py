@@ -55,7 +55,7 @@ positive_canonical_alcove = make_convex_polytope([
     [0,  0,  1, -1],  # c2 >= c3
     [1, -1, -1,  0],  # 1 - c1 >= c2
     [0,  0,  1,  1],  # c3 >= -c2
-])
+], name="A_SU(4)^can")
 """
 Inequalities defining the standard choice of fundamental Weyl alcove in
 normalized positive canonical coordinates for SU(4).
@@ -67,7 +67,7 @@ cf. Eqn 6 of Entropy.
 positive_canonical_alcove_c2 = make_convex_polytope([
     *positive_canonical_alcove.convex_subpolytopes[0].inequalities,
     [0, 0, 0, 1],  # c3 >=  0, the C2 inequality
-])
+], name="A_PU(4)^can")
 """
 Inequalities defining the standard choice of fundamental Weyl alcove in
 normalized positive canonical coordinates for PU(4).
@@ -81,7 +81,7 @@ monodromy_alcove = make_convex_polytope([
     [0,  0,  1, -1, ],  # a2 - a3 >= 0
     [0,  1,  1,  2, ],  # a3 - a4 >= 0
     [1, -2, -1, -1, ],  # a4 - (a1 - 1) >= 0
-])
+], name="A_SU(4)^monodromy")
 """
 Inequalities defining the fundamental Weyl alcove used in monodromy polytope
 calculations for SU(4).
@@ -93,7 +93,7 @@ monodromy_alcove_c2 = make_convex_polytope([
     [0,  0,  1,  1],
     [0,  1, -1,  0],
     [0,  0,  1, -1]
-])
+], name="A_PU(4)^monodromy")
 # monodromy_alcove_c2 = make_convex_polytope([
 #     *monodromy_alcove.convex_subpolytopes[0].inequalities,
 #     [0, 0, 1, 1, ],  # a2 + a3 >= 0 , the C2 inequality
@@ -107,7 +107,7 @@ calculations for PU(4).
 monodromy_alcove_c2_pcs = make_convex_polytope([
     *monodromy_alcove.convex_subpolytopes[0].inequalities,
     [1, -2, 0, 2, ],  # a3 + 1/2 >= a1 , the C2 inequality
-])
+], name="A_PU(4)^PCS")
 """
 Inequalities defining the fundamental Weyl alcove used in monodromy polytope
 calculations for PU(4) according to Peterson-Crooks-Smith.

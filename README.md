@@ -22,7 +22,7 @@ If you're unable to put `lrs` in your search path, you can specify its location 
 
 ## Usage
 
-Give it a whirl with `demo.py` located at toplevel.
+Give it a whirl with `scripts/demo.py`.
 
 ## Notes
 

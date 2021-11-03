@@ -7,7 +7,7 @@ A variety of "standard" polytopes and gates.
 from ..polytopes import ConvexPolytope, make_convex_polytope, Polytope
 
 
-def exactly(*coordinates) -> Polytope:
+def exactly(*coordinates, name=None) -> Polytope:
     """
     Produce a family of inequalities that forces equality with `coordinates`.
     """
@@ -17,7 +17,7 @@ def exactly(*coordinates) -> Polytope:
         row[0] = coordinate.numerator
         row[1 + index] = -coordinate.denominator
         table.append(row)
-    return make_convex_polytope([], equalities=table)
+    return make_convex_polytope([], equalities=table, name=name)
 
 
 everything_polytope = Polytope(convex_subpolytopes=[

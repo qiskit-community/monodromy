@@ -8,7 +8,7 @@ from dataclasses import asdict
 from typing import Dict, List
 
 from ..coordinates import monodromy_alcove_c2
-from ..coverage import CircuitPolytope, intersect_and_project
+from ..coverage import CircuitPolytope, deduce_qlr_consequences
 from ..xx_decompose.precalculate import calculate_unordered_scipy_coverage_set
 from ..static import everything_polytope, identity_polytope
 
@@ -47,7 +47,7 @@ def generate_deflated_coverage_data(
         operation_polytope = operations[first_nonzero_index]
 
         # calculate CircuitPolytope for this bucket value
-        output_polytope = intersect_and_project(
+        output_polytope = deduce_qlr_consequences(
             target="c",
             a_polytope=input_polytope,
             b_polytope=operation_polytope,

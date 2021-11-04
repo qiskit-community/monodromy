@@ -20,7 +20,6 @@ from time import perf_counter
 import numpy as np
 import pybobyqa
 
-import qiskit
 from monodromy.coverage import *
 from monodromy.static.examples import *
 from monodromy.haar import cost_statistics  # , expected_cost

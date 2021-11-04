@@ -7,7 +7,6 @@ template of the form
     local0 * gates[0] * local1 * ... * localn * gates[n] * local(n+1).
 """
 
-import qiskit
 from qiskit.circuit.library import RZXGate
 import numpy as np
 

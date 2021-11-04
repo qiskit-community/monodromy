@@ -24,8 +24,8 @@ from scipy.stats import unitary_group
 
 from qiskit.circuit.library.standard_gates import RZZGate
 from qiskit.extensions.unitary import UnitaryGate
+from qiskit.quantum_info.synthesis.xx_decompose import XXDecomposer
 
-from monodromy.xx_decompose.qiskit import MonodromyZXDecomposer
 from monodromy.utilities import epsilon
 
 
@@ -294,7 +294,7 @@ class TwoQubitGateSynthesizer:
 # COMPARISON
 #
 
-monodromy_decomposer = MonodromyZXDecomposer(euler_basis="PSX")
+monodromy_decomposer = XXDecomposer(euler_basis="PSX")
 gate_template = GateTemplate(qiskit.circuit.library.RZXGate, [gate_strength])
 
 with open(results_filename, "w") as fh:

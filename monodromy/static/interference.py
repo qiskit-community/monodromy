@@ -202,8 +202,48 @@ interference_polytope = Polytope(convex_subpolytopes=[
 This polytope interrelates the a-coordinates and the b-coordinates using the
 "interference inequalities": it fixes one of the three b-coordinates to agree
 with the a-coordinate named "af"; and with the remaining coordinates, it applies
-the linear constraints needed to guarantee a solution for
-`monodromy.xx_decompose.circuits.decompose_xxyy_into_xxyy_xx`.
+the linear constraints needed to guarantee a solution for Qiskit's
+`xx_decompose.circuits.decompose_xxyy_into_xxyy_xx`.
+"""
+
+
+xx_region_polytope = PolytopeData(convex_subpolytopes=[
+    ConvexPolytopeData(inequalities=[[999, 0, 0, 0, -1, 0, 0, 0], [0, 0, 0, 0, 0, 1, -1, 0], [0, 0, 0, 0, 0, 0, 1, 0], [1, 0, 0, 0, 0, -2, 0, 0], [1, 0, 0, 0, 0, 0, 0, -2], [0, 0, 1, -1, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0, 0, 0], [0, 0, 0, 0, 1, -1, -1, 0], [1, -1, -1, 0, 0, 0, 0, 0], [0, -1, -1, -1, 1, 0, 0, 1], [0, 1, -1, 0, 0, 0, 0, 0], [0, 1, -1, -1, 1, -2, 0, 1], [0, 1, -1, -1, 1, 0, 0, -1], [0, 0, 0, -1, 1, -1, 0, 0], [0, 0, -1, 0, 1, -1, -1, 1], [0, 0, 0, 0, 0, 0, 0, 1]], equalities=[], name='I ∩ A alcove ∩ A unreflected ∩ ah slant ∩ al frustrum ∩ B alcove ∩ B unreflected ∩ AF=B3'),
+    ConvexPolytopeData(inequalities=[[999, 0, 0, 0, -1, 0, 0, 0], [0, 0, 0, 0, 0, 1, -1, 0], [0, 0, 0, 0, 0, 0, 1, 0], [1, 0, 0, 0, 0, -2, 0, 0], [1, 0, 0, 0, 0, 0, 0, -2], [0, 0, 1, -1, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0, 0, 0], [0, 0, 0, 0, 1, -1, -1, 0], [1, -1, -1, 0, 0, 0, 0, 0], [1, -1, -1, -1, 1, -2, 0, 1], [0, 1, -1, 0, 0, 0, 0, 0], [-1, 1, -1, -1, 1, 0, 0, 1], [1, -1, -1, -1, 1, 0, 0, -1], [0, 0, 0, -1, 1, -1, 0, 0], [0, 0, -1, 0, 1, -1, -1, 1], [0, 0, 0, 0, 0, 0, 0, 1]], equalities=[], name='I ∩ A alcove ∩ A reflected ∩ ah strength ∩ al frustrum ∩ B alcove ∩ B reflected ∩ AF=B3'),
+    ConvexPolytopeData(inequalities=[[999, 0, 0, 0, -1, 0, 0, 0], [0, 0, 0, 0, 0, 1, -1, 0], [0, 0, 0, 0, 0, 0, 1, 0], [1, 0, 0, 0, 0, -2, 0, 0], [1, 0, 0, 0, 0, 0, 0, -2], [0, 1, -1, 0, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0, 0, 0], [1, -1, -1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 1, -1, -1, 0], [0, 1, -1, -1, 1, -2, 0, 1], [0, -1, -1, -1, 1, 0, 0, 1], [0, 0, 1, -1, 0, 0, 0, 0], [1, -1, 1, -1, 0, 0, 0, -1], [0, 1, 1, -1, 1, -2, 0, -1], [0, -1, 1, -1, 1, 0, 0, -1], [0, 0, 0, -1, 1, -1, -1, 1], [0, 0, 0, 0, 0, 0, 0, 1]], equalities=[], name='I ∩ A alcove ∩ A unreflected ∩ af slant ∩ al frustrum ∩ B alcove ∩ B unreflected ∩ AF=B1'),
+    ConvexPolytopeData(inequalities=[[999, 0, 0, 0, -1, 0, 0, 0], [0, 0, 0, 0, 0, 1, -1, 0], [0, 0, 0, 0, 0, 0, 1, 0], [1, 0, 0, 0, 0, -2, 0, 0], [1, 0, 0, 0, 0, 0, 0, -2], [0, 1, -1, 0, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0, 0, 0], [1, -1, -1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 1, -1, -1, 0], [-1, 1, -1, -1, 1, 0, 0, 1], [1, -1, -1, -1, 1, -2, 0, 1], [0, 0, 1, -1, 0, 0, 0, 0], [1, -1, 1, -1, 0, 0, 0, -1], [-1, 1, 1, -1, 1, 0, 0, -1], [1, -1, 1, -1, 1, -2, 0, -1], [0, 0, 0, -1, 1, -1, -1, 1], [0, 0, 0, 0, 0, 0, 0, 1]], equalities=[], name='I ∩ A alcove ∩ A reflected ∩ af strength ∩ al frustrum ∩ B alcove ∩ B reflected ∩ AF=B1')
+])
+"""
+This polytope has the same point set as `b_polytope`, but it is broken into a
+certain sum of convex regions. Each region is tagged with a name, and it is the
+projection of the region of `xx_lift_polytope` with the corresponding name.
+
+The coordinates are [k, b1, b2, b3, s+, s1, s2, beta].
+
+NOTE: Includes an inequality which asserts 999 ≥ s+.  This bound is a dummy
+      value, necessarily only because (our interface to) lrs does not deal well
+      with unbounded regions.
+"""
+
+
+xx_lift_polytope = PolytopeData(convex_subpolytopes=[
+    ConvexPolytopeData(inequalities=[[999, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 1, -1, -1, 0], [0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0], [1, 0, 0, 0, 0, 0, 0, 0, -2, 0, 0], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -2], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0], [1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0], [1, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0], [0, -1, -1, -1, 0, 0, 0, 1, 0, 0, 0], [0, 1, -1, -1, 0, 0, 0, 1, -2, 0, 0], [0, 0, -1, 0, 0, 0, 0, 1, -1, -1, 0], [0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], [1, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0], [0, 0, 0, 0, -1, -1, -1, 1, 0, 0, 1], [0, 0, 0, 0, 1, -1, -1, 1, -2, 0, 1], [0, 0, 0, 0, 1, -1, -1, 1, 0, 0, -1], [0, 0, 0, 0, 0, 0, -1, 1, -1, -1, 1], [0, 0, 0, 0, 0, 0, -1, 1, -1, 0, 0], [0, -1, -1, 0, 1, 1, 0, 0, 0, 0, 1], [2, -1, -1, 0, -1, -1, 0, 0, 0, 0, -1], [0, 1, 1, 0, -1, -1, 0, 0, 0, 0, 1], [0, -1, 1, 0, 1, -1, 0, 0, 0, 0, 1], [0, 1, -1, 0, -1, 1, 0, 0, 0, 0, 1], [0, 1, -1, 0, 1, -1, 0, 0, 0, 0, -1]], equalities=[[0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0]], name='I ∩ A alcove ∩ A unreflected ∩ ah slant ∩ al frustrum ∩ B alcove ∩ B unreflected ∩ AF=B3'),
+    ConvexPolytopeData(inequalities=[[999, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 1, -1, -1, 0], [0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0], [1, 0, 0, 0, 0, 0, 0, 0, -2, 0, 0], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -2], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0], [1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0], [1, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0], [0, -1, -1, -1, 0, 0, 0, 1, 0, 0, 0], [0, -1, -1, 1, 0, 0, 0, 1, -2, 0, 0], [0, 0, -1, 0, 0, 0, 0, 1, -1, -1, 0], [0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], [1, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0], [0, 0, 0, 0, -1, -1, -1, 1, 0, 0, 1], [0, 0, 0, 0, 1, -1, -1, 1, -2, 0, 1], [0, 0, 0, 0, 1, -1, -1, 1, 0, 0, -1], [0, 0, 0, 0, 0, 0, -1, 1, -1, -1, 1], [0, 0, 0, 0, 0, 0, -1, 1, -1, 0, 0], [0, -1, -1, 0, 0, 1, 1, 0, 0, 0, 1], [2, -1, -1, 0, 0, -1, -1, 0, 0, 0, -1], [0, 1, 1, 0, 0, -1, -1, 0, 0, 0, 1], [0, -1, 1, 0, 0, 1, -1, 0, 0, 0, 1], [0, 1, -1, 0, 0, -1, 1, 0, 0, 0, 1], [0, 1, -1, 0, 0, 1, -1, 0, 0, 0, -1]], equalities=[[0, 0, 0, 1, -1, 0, 0, 0, 0, 0, 0]], name='I ∩ A alcove ∩ A unreflected ∩ af slant ∩ al frustrum ∩ B alcove ∩ B unreflected ∩ AF=B1'),
+    ConvexPolytopeData(inequalities=[[999, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 1, -1, -1, 0], [0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0], [1, 0, 0, 0, 0, 0, 0, 0, -2, 0, 0], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -2], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0], [1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0], [1, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0], [1, -1, -1, -1, 0, 0, 0, 1, -2, 0, 0], [-1, -1, -1, 1, 0, 0, 0, 1, 0, 0, 0], [0, 0, -1, 0, 0, 0, 0, 1, -1, -1, 0], [0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], [1, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0], [-1, 0, 0, 0, 1, -1, -1, 1, 0, 0, 1], [1, 0, 0, 0, -1, -1, -1, 1, 0, 0, -1], [1, 0, 0, 0, -1, -1, -1, 1, -2, 0, 1], [0, 0, 0, 0, 0, 0, -1, 1, -1, -1, 1], [0, 0, 0, 0, 0, 0, -1, 1, -1, 0, 0], [0, -1, -1, 0, 0, 1, 1, 0, 0, 0, 1], [2, -1, -1, 0, 0, -1, -1, 0, 0, 0, -1], [0, 1, 1, 0, 0, -1, -1, 0, 0, 0, 1], [0, -1, 1, 0, 0, 1, -1, 0, 0, 0, 1], [0, 1, -1, 0, 0, -1, 1, 0, 0, 0, 1], [0, 1, -1, 0, 0, 1, -1, 0, 0, 0, -1]], equalities=[[0, 0, 0, 1, -1, 0, 0, 0, 0, 0, 0]], name='I ∩ A alcove ∩ A reflected ∩ af strength ∩ al frustrum ∩ B alcove ∩ B reflected ∩ AF=B1'),
+    ConvexPolytopeData(inequalities=[[999, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 1, -1, -1, 0], [0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0], [1, 0, 0, 0, 0, 0, 0, 0, -2, 0, 0], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -2], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0], [1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0], [1, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0], [1, -1, -1, -1, 0, 0, 0, 1, -2, 0, 0], [-1, 1, -1, -1, 0, 0, 0, 1, 0, 0, 0], [0, 0, -1, 0, 0, 0, 0, 1, -1, -1, 0], [0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], [1, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0], [-1, 0, 0, 0, 1, -1, -1, 1, 0, 0, 1], [1, 0, 0, 0, -1, -1, -1, 1, 0, 0, -1], [1, 0, 0, 0, -1, -1, -1, 1, -2, 0, 1], [0, 0, 0, 0, 0, 0, -1, 1, -1, -1, 1], [0, 0, 0, 0, 0, 0, -1, 1, -1, 0, 0], [0, -1, -1, 0, 1, 1, 0, 0, 0, 0, 1], [2, -1, -1, 0, -1, -1, 0, 0, 0, 0, -1], [0, 1, 1, 0, -1, -1, 0, 0, 0, 0, 1], [0, -1, 1, 0, 1, -1, 0, 0, 0, 0, 1], [0, 1, -1, 0, -1, 1, 0, 0, 0, 0, 1], [0, 1, -1, 0, 1, -1, 0, 0, 0, 0, -1]], equalities=[[0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0]], name='I ∩ A alcove ∩ A reflected ∩ ah strength ∩ al frustrum ∩ B alcove ∩ B reflected ∩ AF=B3')
+])
+"""
+This polytope is a union of convex regions which project to cover `b_polytope`
+(namely, they project to the regions in `xx_region_polytope`), with the added
+property that each specialization of (af, b1, b2, b3, s+, s1, s2, beta) yields
+a _nonempty_ polytope on (ah, al).  Points in this region can then be used to
+calculate circuits using `decompose_xxyy_into_xxyy_xx`.
+
+The coordinates are [k, ah, al, af, b1, b2, b3, s+, s1, s2, beta].
+
+NOTE: Includes an inequality which asserts 999 ≥ s+.  This bound is a dummy
+      value, necessarily only because (our interface to) lrs does not deal well
+      with unbounded regions.
 """
 
 
@@ -262,7 +302,7 @@ def polytope_from_strengths(strengths, scale_factor=1):
 
 def get_augmented_coordinate(target_coordinate, strengths):
     """
-
+    Produce a coordinate suitable for use with `xx_region_polytope`.
     """
     *strengths, beta = strengths
     strengths = sorted(strengths + [0, 0])
@@ -275,7 +315,7 @@ def regenerate_xx_solution_polytopes():
     Recalculates the partition of b-coordinates into regions with solvable lifts
     with the interference relations.
 
-    Returns the pair (xx_region_polytope, xx_lift_polytope).
+    Recreates the pair (xx_region_polytope, xx_lift_polytope).
 
     NOTE: This routine amounts to a computer-calculated _proof_ of the main
           local theorem, which it checks as an assertion.

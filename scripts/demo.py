@@ -1,14 +1,13 @@
-import qiskit
 import qiskit.quantum_info
+from qiskit.quantum_info.synthesis.xx_decompose import XXDecomposer
 
+import numpy as np
 from scipy.stats import unitary_group
 
-from monodromy.xx_decompose.circuits import *
 from monodromy.coverage import *
 from monodromy.static.examples import *
 from monodromy.haar import expected_cost
 import monodromy.render
-from monodromy.xx_decompose.qiskit import MonodromyZXDecomposer
 
 
 def default_zx_operation_cost(
@@ -71,7 +70,7 @@ u = unitary_group.rvs(4)
 u /= np.linalg.det(u) ** (1 / 4)
 
 # decompose into CX, CX/2, and CX/3
-monodromy_decomposer = MonodromyZXDecomposer(euler_basis="PSX")
+monodromy_decomposer = XXDecomposer(euler_basis="PSX")
 circuit = monodromy_decomposer(u, approximate=False)
 
 with np.printoptions(precision=4, suppress=True):

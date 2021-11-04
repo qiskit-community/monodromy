@@ -1,6 +1,5 @@
 from time import perf_counter
 
-import qiskit
 import monodromy
 
 from monodromy.coordinates import monodromy_alcove, monodromy_alcove_c2, monodromy_to_positive_canonical_polytope, rho_reflect

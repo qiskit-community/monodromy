@@ -4,12 +4,11 @@ test/test_coordinates.py
 Tests for monodromy/coordinates.py .
 """
 
-import ddt
+from fractions import Fraction
 import unittest
 
+import ddt
 import qiskit
-
-from fractions import Fraction
 
 from monodromy.coordinates import *
 from monodromy.static.examples import exactly

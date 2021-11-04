@@ -7,8 +7,6 @@ Bare dataclasses which house polytope information.
 from dataclasses import dataclass, field
 from typing import List
 
-import qiskit
-
 
 anonymous_convex_polytope_counter = 0
 

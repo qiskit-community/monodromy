@@ -21,7 +21,7 @@ import pybobyqa
 from scipy.stats import unitary_group
 
 import qiskit
-from monodromy.xx_decompose.qiskit import MonodromyZXDecomposer
+from qiskit.quantum_info.synthesis.xx_decompose import XXDecomposer
 
 gateset_dimension = 2  # how many gates to include beyond a full CX
 filename = "approx_gateset_landscape_2d_mirror.dat"  # .dat file with expected cost info
@@ -106,7 +106,7 @@ def single_sample_infidelity(decomposer, basis_infidelity,
 def objective(ratios, attempts=10_000):
     global cost_table
 
-    decomposer = MonodromyZXDecomposer(euler_basis="PSX")
+    decomposer = XXDecomposer(euler_basis="PSX")
     basis_infidelity = {
         np.pi / 2 * ratio: operation_cost(ratio) for ratio in ratios
     }

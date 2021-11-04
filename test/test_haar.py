@@ -4,8 +4,6 @@ test/test_haar.py
 Tests for monodromy/haar.py .
 """
 
-import qiskit
-
 import ddt
 import unittest
 

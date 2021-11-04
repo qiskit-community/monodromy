@@ -4,8 +4,6 @@ test/test_coverage.py
 Tests for monodromy/coverage.py .
 """
 
-import qiskit
-
 import ddt
 import unittest
 

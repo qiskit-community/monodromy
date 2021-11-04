@@ -4,8 +4,6 @@ test/test_polytopes.py
 Tests for monodromy/polytopes.py .
 """
 
-import qiskit
-
 import ddt
 import unittest
 

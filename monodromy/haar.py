@@ -265,11 +265,18 @@ def cost_statistics(coverage_set, offset, scale_factor, chatty=False):
     # postprocessing
     average_overshot = average_cost - (3 * offset + 3 / 2 * scale_factor)
 
+    square_sigma_cost = square_sigma_cost - average_cost ** 2
+    square_sigma_overshot = square_sigma_overshot - average_overshot ** 2
+    if 0 > square_sigma_cost > -1e-10:
+        square_sigma_cost = 0
+    if 0 > square_sigma_overshot > -1e-10:
+        square_sigma_overshot = 0
+
     return {
         "average_cost": average_cost,
         "average_overshot": average_overshot,
-        "sigma_cost": sqrt(square_sigma_cost - average_cost ** 2),
-        "sigma_overshot": sqrt(square_sigma_overshot - average_overshot ** 2),
+        "sigma_cost": sqrt(square_sigma_cost),
+        "sigma_overshot": sqrt(square_sigma_overshot),
     }
 
 

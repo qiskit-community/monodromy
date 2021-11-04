@@ -1,8 +1,4 @@
-qiskit-terra
 numpy
-scipy
-qiskit
-pytest
 
 # SEE README:
 # lrs

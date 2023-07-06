@@ -145,6 +145,10 @@ def build_coverage_set(
     If `chatty` is toggled, emits progress messages.
     """
 
+    # assert that operations.operation are unique
+    if len(set([operation.operations[-1] for operation in operations])) != len(operations):
+        raise ValueError("Operations must be unique.")
+
     # start by generating precalculated operation polytopes
     prereduced_operation_polytopes = prereduce_operation_polytopes(
         operations

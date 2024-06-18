@@ -1,5 +1,5 @@
 import qiskit.quantum_info
-from qiskit.quantum_info.synthesis.xx_decompose import XXDecomposer
+from qiskit.synthesis.two_qubit.xx_decompose import XXDecomposer
 
 import numpy as np
 from scipy.stats import unitary_group

@@ -21,7 +21,7 @@ import pybobyqa
 from scipy.stats import unitary_group
 
 import qiskit
-from qiskit.quantum_info.synthesis.xx_decompose import XXDecomposer
+from qiskit.synthesis.two_qubit.xx_decompose import XXDecomposer
 
 gateset_dimension = 2  # how many gates to include beyond a full CX
 filename = "approx_gateset_landscape_2d_mirror.dat"  # .dat file with expected cost info

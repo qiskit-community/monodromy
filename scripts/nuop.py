@@ -24,7 +24,7 @@ from scipy.stats import unitary_group
 
 from qiskit.circuit.library.standard_gates import RZZGate
 from qiskit.extensions.unitary import UnitaryGate
-from qiskit.quantum_info.synthesis.xx_decompose import XXDecomposer
+from qiskit.synthesis.two_qubit.xx_decompose import XXDecomposer
 
 from monodromy.utilities import epsilon
 

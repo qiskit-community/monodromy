@@ -13,7 +13,7 @@ This python package is a computationally effective implementation of that techni
    Begin by installing those requirements, using `pip -r requirements.txt`.
 2. Install [`lrs`](http://cgm.cs.mcgill.ca/~avis/C/lrs.html).
    Typically, this means downloading the source, building it, and placing the generated executable somewhere in the search path for your python process.
-   **NOTE:** We require either version ≥0.7.2 *or* version ≥0.7.1 of `lrsgmp` (renamed to `lrs`).
+   **NOTE:** We require version version ≥0.7.1b of `lrsgmp` (renamed to `lrs`).
 3. *Optionally,* install [`lrcalc`](https://sites.math.rutgers.edu/~asbuch/lrcalc/).  Typically, this means downloading the source, building it, then building the Cython bindings, and installing the resulting package.  *This is not necessary: `lrcalc` is needed only for the curious user who wants to regenerate the contents of `qlr_table.py`.*
 
 ## Configuration

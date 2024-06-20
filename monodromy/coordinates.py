@@ -158,7 +158,7 @@ def unitary_to_monodromy_coordinate(unitary):
     """
     Given a unitary matrix, produces its alcove coordinate.
     """
-    unitary = unitary * np.linalg.det(unitary) ** (-1 / 4)
+    unitary = unitary * np.complex128(np.linalg.det(unitary)) ** (-1 / 4)
     sysy = np.array([
         [0,  0,  0, 1],
         [0,  0, -1, 0],

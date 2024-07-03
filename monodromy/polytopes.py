@@ -240,6 +240,13 @@ class Polytope(PolytopeData):
         Returns A cup B.
         """
         clone = copy(self)
+
+        # put convex_subpolytopes to list if it isn't already
+        if type(self.convex_subpolytopes) != list:
+            self.convex_subpolytopes = [self.convex_subpolytopes]
+        if type(other.convex_subpolytopes) != list:
+            other.convex_subpolytopes = [other.convex_subpolytopes]
+            
         clone.convex_subpolytopes = (self.convex_subpolytopes +
                                      other.convex_subpolytopes)
         clear_memoization(clone)

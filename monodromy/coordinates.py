@@ -200,7 +200,7 @@ def positive_canonical_to_monodromy_coordinate(x, y, z):
 
 def positive_to_balanced_canonical_coordinate(x, y, z):
     """
-    Converts a balanced canonical coordinate to a positive one.
+    Converts a positive canonical coordinate to a balanced one.
     """
     if x <= np.pi / 4:
         return x, y, z

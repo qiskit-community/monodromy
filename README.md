@@ -1,3 +1,6 @@
+> [!NOTE]
+> This repository is associated to a [research publication](https://arxiv.org/abs/1904.10541) and the code here is not actively maintained. This is not an officially supported IBM Quantum software.
+
 # `monodromy`
 
 Computations in the monodromy polytope for quantum gate sets

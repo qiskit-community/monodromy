@@ -16,7 +16,7 @@ several common coordinate systems / choices of Weyl alcove in pu_4:
 
       exp(-i(a XX + b YY + c ZZ))
 
-  with a, b, c further chosen to satisfy a ≥ b ≥ c ≥ 0 and pi - a ≥ b.  One may
+  with a, b, c further chosen to satisfy a ≥ b ≥ c ≥ 0 and pi/2 - a ≥ b.  One may
   further _normalize_ these coordinates by dividing by pi, so that the polytope
   becomes integrally specified.
 

@@ -12,8 +12,11 @@ from fractions import Fraction
 from functools import reduce
 import math  # for gcd
 from operator import itemgetter
+import os
 from os import getenv
+from shutil import which
 from subprocess import Popen, PIPE
+from tempfile import TemporaryDirectory
 from typing import List
 
 from .backend_abc import Backend
@@ -34,12 +37,7 @@ def check_for_lrs():
     """
     Checks whether `lrs` is findable and executable.
     """
-    try:
-        proc = Popen([LRS_PATH], stdin=PIPE, stdout=PIPE, stderr=PIPE)
-        proc.communicate(b"")
-        return True
-    except Exception:  # FileNotFoundError, for instance
-        return False
+    return which(LRS_PATH) is not None
 
 
 class LRSBackend(Backend):
@@ -148,14 +146,26 @@ def single_lrs_pass(payload: bytes, chatty=False) -> bytes:
         print("=== LRS CALL ===")
         print("Payload:")
         print(payload.decode())
-    proc = Popen([LRS_PATH], stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    stdout, stderr = proc.communicate(payload)
-    # TODO: You could do something with stderr, but beware: if lrs restarts with
-    #       a different arithmetic type, it puts some chatter on that stream.
+    # lrs 7.3 crashes if it restarts with wider arithmetic while reading stdin,
+    # and from 7.2 its stdout banner has no leading `*`. Files avoid both: the
+    # output file holds only the final pass, with the `*` banner.
+    with TemporaryDirectory() as directory:
+        input_path = os.path.join(directory, "input")
+        output_path = os.path.join(directory, "output")
+        with open(input_path, "wb") as f:
+            f.write(payload)
+        proc = Popen([LRS_PATH, input_path, output_path],
+                     stdout=PIPE, stderr=PIPE, cwd=directory)
+        proc.communicate()
+        try:
+            with open(output_path, "rb") as f:
+                response = f.read()
+        except FileNotFoundError:
+            response = b""
     if chatty:
         print("Response:")
-        print(stdout.decode())
-    return stdout
+        print(response.decode())
+    return response
 
 
 def encode_inequalities(inequalities, equalities=None, name="name",
